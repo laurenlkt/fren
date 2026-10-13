@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Session ended</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <h1>Session ended</h1>
+
+    <section class="card">
+      <p id="closing-message"></p>
+      <p id="crisis-link" hidden>
+        <a class="button" href="/help">See support options</a>
+      </p>
+    </section>
+
+    <section class="card" id="plan-card" hidden>
+      <h2>Your small plan</h2>
+      <p id="plan-text"></p>
+    </section>
+
+    <section class="card">
+      <p id="next-session"></p>
+      <p class="muted">
+        There's no need to come back on any schedule. Fren will be here if
+        and when it's useful.
+      </p>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+    async function setup() {
+      const result = await api("/api/status");
+      if (!result.ok) return;
+      const status = result.data;
+      showDevWarnings(status.dev_warnings);
+
+      if (status.open_session) {
+        window.location.href = "/session";  // still in a session
+        return;
+      }
+
+      const last = status.last_session;
+      if (last) {
+        document.getElementById("closing-message").textContent = last.closing_message;
+        document.getElementById("crisis-link").hidden = last.end_reason !== "crisis";
+        if (last.plan_text) {
+          document.getElementById("plan-text").textContent = last.plan_text;
+          document.getElementById("plan-card").hidden = false;
+        }
+      }
+
+      document.getElementById("next-session").textContent = status.next_available_at
+        ? "Your next session can start from " + formatDateTime(status.next_available_at) + "."
+        : "You can start a new session whenever you like.";
+    }
+
+    setup();
+  </script>
+</body>
+</html>

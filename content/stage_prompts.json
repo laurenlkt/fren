@@ -1,0 +1,9 @@
+{
+  "_note": "Fren shows these fixed lines when each stage begins. They are written by you, not the AI. Edit freely, but keep the stage names unchanged.",
+  "checkin": "Thanks for checking in. In a sentence or two, how are things today?",
+  "focus": "What's one thing you'd like to focus on in this session?",
+  "reflection": "Let's look at that a little more closely. What do you think is making it feel the way it does?",
+  "plan": "Let's turn this into one small, doable step for the next few days. When you're ready, write it in the plan box below.",
+  "human_step": "Who is one real person or service you could get in touch with, about this or just to connect? You'll be the one who sends the message, outside Fren.",
+  "close": "We're at the end of this session. Is there one thing you'd like to take away from today?"
+}

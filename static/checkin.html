@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Check in</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <h1>Check in</h1>
+
+    <!-- Shown when the participant's gap hasn't passed yet -->
+    <section class="card" id="not-yet" hidden>
+      <p>Your next Fren session is available from <strong id="next-time"></strong>.</p>
+      <p class="muted">You chose this gap so Fren stays a small part of your week.</p>
+    </section>
+
+    <form class="card" id="checkin-form" hidden>
+      <fieldset>
+        <legend>How are you feeling right now?</legend>
+        <div class="mood-scale">
+          <label><input type="radio" name="mood" value="1" required>1<br>Very low</label>
+          <label><input type="radio" name="mood" value="2">2<br>Low</label>
+          <label><input type="radio" name="mood" value="3">3<br>Okay</label>
+          <label><input type="radio" name="mood" value="4">4<br>Good</label>
+          <label><input type="radio" name="mood" value="5">5<br>Very good</label>
+        </div>
+      </fieldset>
+      <p class="muted">This starts a session of up to 10 minutes.</p>
+      <button type="submit">Start session</button>
+      <p class="notice" id="error" hidden></p>
+    </form>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+    async function setup() {
+      const result = await api("/api/status");
+      if (!result.ok) return;
+      showDevWarnings(result.data.dev_warnings);
+
+      if (result.data.open_session) {
+        window.location.href = "/session";  // already in a session
+      } else if (result.data.next_available_at) {
+        document.getElementById("next-time").textContent =
+          formatDateTime(result.data.next_available_at);
+        document.getElementById("not-yet").hidden = false;
+      } else {
+        document.getElementById("checkin-form").hidden = false;
+      }
+    }
+
+    document.getElementById("checkin-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const mood = Number(document.querySelector("input[name=mood]:checked").value);
+      const result = await api("/api/session/start", { mood: mood });
+      if (result.ok) {
+        window.location.href = "/session";
+      } else {
+        showNotice(document.getElementById("error"), result.data.message || "Something went wrong.");
+      }
+    });
+
+    setup();
+  </script>
+</body>
+</html>

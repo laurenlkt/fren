@@ -4,8 +4,9 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 2 of 8 is done (the safety layer and its tests).
-> There is no AI chat yet.
+> **Build status:** Step 3 of 8 is done: the safety layer, plus the session
+> flow with its limits. Fren's replies are still **scripted placeholders**
+> (marked `[scripted]`). The AI replies come in step 4.
 
 ---
 
@@ -79,6 +80,23 @@ python run.py
 Then open <http://127.0.0.1:8000>. The server only listens on your own
 computer (`127.0.0.1`). Stop it with **Ctrl+C**.
 
+### Trying a session without waiting or paying
+
+Two settings in `config.py` help while you're developing. **Both must be
+`False` for real participants.** While either is on, the server prints a
+warning and every page shows a red banner.
+
+- `DEV_MODE = True` makes gaps count in minutes instead of hours, so a
+  "1 day" gap becomes 24 minutes.
+- `USE_AI_CLASSIFIER = False` skips the AI crisis check (keywords still
+  run), so you can click through without an API key. Without this, and
+  with no key, every message fails safe and shows the help message.
+
+To start again as a brand-new participant, delete the cookie for
+127.0.0.1 in your browser, or use a private window.
+
+To wipe all the data, stop the server and delete `data/fren.db`.
+
 ---
 
 ## Where things are
@@ -94,9 +112,38 @@ computer (`127.0.0.1`). Stop it with **Ctrl+C**.
 | Crisis check code | `app/safety/crisis_check.py` |
 | Output filter code | `app/safety/output_filter.py` |
 | Example test messages | `tests/safety_examples.py` |
+| Line Fren shows at the start of each stage | `content/stage_prompts.json` |
+| Placeholder replies (step 3 only) | `content/scripted_replies.json` |
+| Text on the session-ended screen | `content/closing_messages.json` |
+| The session state machine | `app/session_flow.py` |
+| Database code | `app/database.py` |
+| Web routes | `app/main.py` |
+| Pages | `static/*.html`, `static/session.js` |
 
 You can edit everything in `content/` without touching any code. Changes
 apply on the next message, with no restart needed.
+
+## How a session works
+
+```
+onboarding ─► check-in (mood 1-5) ─► session ─► close screen
+                                       │
+     checkin → focus → reflection → plan → human_step → close → ended
+        1        3          3         2         2          1      ← messages per stage
+```
+
+- The **server** keeps track of the stage. Each stage allows a set number
+  of messages (see `STAGE_MESSAGE_BUDGET` in `config.py`), then Fren moves
+  on. "Move on" skips ahead early.
+- On **every** request the server checks the limits: 10 minutes since the
+  start, or 12 messages. When either is reached the session is closed and
+  later messages are refused. The countdown on the page is only a display.
+- A new session can't start until the participant's chosen gap has passed
+  since the last one ended.
+- **Chat messages are deleted when the session ends.** What's kept: mood,
+  start/end times, why it ended, the plan, and whether the human step was
+  taken.
+- If a crisis is detected, the session ends and the help message is shown.
 
 ## How the safety layer works
 

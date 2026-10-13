@@ -1,0 +1,7 @@
+{
+  "_note": "Shown on the session close screen, depending on why the session ended. Written by you, not the AI. No guilt, no urgency.",
+  "completed": "That's the end of this session. Thanks for taking the time.",
+  "time_limit": "That's the end of this session: Fren sessions are kept short on purpose.",
+  "message_limit": "That's the end of this session: Fren sessions are kept short on purpose.",
+  "crisis": "This session has ended so you can focus on getting support from a person. The people and services on the support page are there for you right now."
+}

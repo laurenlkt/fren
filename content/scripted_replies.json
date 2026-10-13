@@ -1,0 +1,27 @@
+{
+  "_note": "STEP 3 ONLY: placeholder replies used before the AI is connected. Each stage has a list: the 1st reply is used after the 1st message in that stage, and so on. If there are more messages than replies, the last one repeats.",
+  "checkin": [
+    "[scripted] Thanks for sharing that."
+  ],
+  "focus": [
+    "[scripted] Okay. What about that feels most important right now?",
+    "[scripted] That makes sense. Is there a part of it that feels within your control?",
+    "[scripted] Thanks. Let's take that into the next part."
+  ],
+  "reflection": [
+    "[scripted] What have you tried before, and how did it go?",
+    "[scripted] If a friend were in your position, what might you say to them?",
+    "[scripted] That's a useful thing to notice."
+  ],
+  "plan": [
+    "[scripted] Small is good. What might get in the way, and how could you handle that?",
+    "[scripted] Thanks. Remember to save your plan in the box."
+  ],
+  "human_step": [
+    "[scripted] That sounds like a good person to contact. What would you want them to know?",
+    "[scripted] Thanks. Sending it is up to you, whenever feels right."
+  ],
+  "close": [
+    "[scripted] Thanks for taking the time today. Take care."
+  ]
+}

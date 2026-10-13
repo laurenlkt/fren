@@ -51,3 +51,54 @@ CLASSIFIER_TIMEOUT_SECONDS = 20
 # Set this to True ONLY if your ethics approval allows storing the actual
 # words the participant typed. Default: False (text is never stored).
 STORE_FLAGGED_TEXT = False
+
+# ---------------------------------------------------------------------------
+# Session limits (enforced by the backend, not the browser)
+# ---------------------------------------------------------------------------
+SESSION_MAX_MINUTES = 10
+SESSION_MAX_USER_MESSAGES = 12
+
+# The fixed order of stages. The app moves through these; the AI never can.
+STAGES = ["checkin", "focus", "reflection", "plan", "human_step", "close"]
+
+# How many participant messages each stage allows before Fren moves on.
+# These add up to 12. The participant can also press "Move on" early.
+STAGE_MESSAGE_BUDGET = {
+    "checkin": 1,
+    "focus": 3,
+    "reflection": 3,
+    "plan": 2,
+    "human_step": 2,
+    "close": 1,
+}
+
+# Longest message a participant can send (characters).
+MAX_MESSAGE_LENGTH = 1000
+MAX_PLAN_LENGTH = 500
+
+# If a crisis is detected mid-session, end the session (the participant
+# sees the help message instead). Recommended: True.
+CRISIS_ENDS_SESSION = True
+
+# ---------------------------------------------------------------------------
+# Gap between sessions
+# ---------------------------------------------------------------------------
+# The participant picks one of these minimum gaps (in hours) at onboarding.
+GAP_CHOICES_HOURS = [24, 48, 72, 168]   # 1 day, 2 days, 3 days, 1 week
+DEFAULT_GAP_HOURS = 24
+
+# Mood scale used at check-in: 1 = very low ... 5 = very good.
+MOOD_MIN = 1
+MOOD_MAX = 5
+
+# ---------------------------------------------------------------------------
+# Developer settings - MUST be False for real participants
+# ---------------------------------------------------------------------------
+# DEV_MODE: gaps count in MINUTES instead of hours, so you can test the gap
+# without waiting a day (a "24 hour" gap becomes 24 minutes).
+DEV_MODE = False
+
+# USE_AI_CLASSIFIER: set to False ONLY to try the app without an API key.
+# The keyword check still runs, but the AI check is skipped. The server
+# prints a warning and every page shows a red banner while this is off.
+USE_AI_CLASSIFIER = True

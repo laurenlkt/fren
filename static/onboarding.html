@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Welcome</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <h1>Welcome to Fren</h1>
+
+    <section class="card">
+      <h2>What Fren is</h2>
+      <p>
+        Fren is a short, structured check-in for university students. It's an
+        <strong>AI program</strong>, not a person. Each session helps you pick
+        one thing to focus on, make a small plan, and think of a real person
+        you could connect with.
+      </p>
+      <p>
+        Fren is <strong>not therapy, not medical advice and not crisis
+        support</strong>. If you're struggling to stay safe, use the
+        <a href="/help">Get help now</a> button at any time.
+      </p>
+      <p>Fren is a research prototype.</p>
+    </section>
+
+    <section class="card">
+      <h2>Your privacy</h2>
+      <ul>
+        <li>No name, email or account. Fren gives this browser a random ID.</li>
+        <li>Fren keeps: your mood scores, session times, your small plan, and
+            whether you chose to reach out to someone.</li>
+        <li>Your chat messages are <strong>deleted when each session ends</strong>.</li>
+        <li>If a safety check is triggered, Fren notes that it happened and the
+            type of concern, but not your words.</li>
+        <li>You can delete all your data at any time in Settings.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Limits, by design</h2>
+      <p>
+        Fren is meant to be a small part of your week, not a big one.
+        Each session lasts at most <strong><span id="minutes">10</span> minutes</strong>
+        or <strong><span id="messages">12</span> messages</strong>, and then
+        it ends. There's also a gap before you can start the next one, which you choose here.
+      </p>
+
+      <form id="onboard-form">
+        <fieldset class="choices" id="gap-choices">
+          <legend>Minimum time between sessions</legend>
+          <!-- options are filled in by the script below -->
+        </fieldset>
+
+        <label>
+          <input type="checkbox" id="understand" required>
+          I understand that Fren is an AI, and is not therapy or crisis support.
+        </label>
+
+        <p><button type="submit">Start using Fren</button></p>
+        <p class="notice" id="error" hidden></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+    // Describe a number of hours in words, e.g. 48 -> "2 days".
+    function describeHours(hours) {
+      if (hours === 168) return "1 week";
+      if (hours % 24 === 0) return hours / 24 + (hours === 24 ? " day" : " days");
+      return hours + " hours";
+    }
+
+    async function setup() {
+      const result = await fetch("/api/config").then(r => r.json());
+      showDevWarnings(result.dev_warnings);
+      document.getElementById("minutes").textContent = result.session_minutes;
+      document.getElementById("messages").textContent = result.session_messages;
+
+      const box = document.getElementById("gap-choices");
+      for (const hours of result.gap_choices_hours) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "gap";
+        input.value = hours;
+        input.checked = hours === result.default_gap_hours;
+        label.append(input, " " + describeHours(hours));
+        box.append(label);
+      }
+    }
+
+    document.getElementById("onboard-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const gap = Number(document.querySelector("input[name=gap]:checked").value);
+      const result = await api("/api/onboard", { min_gap_hours: gap });
+      if (result.ok) {
+        window.location.href = "/checkin";
+      } else {
+        showNotice(document.getElementById("error"), result.data.message || "Something went wrong.");
+      }
+    });
+
+    setup();
+  </script>
+</body>
+</html>

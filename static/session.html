@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Session</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <!-- Progress bar: one box per stage -->
+    <ol class="progress" id="progress" aria-label="Session progress"></ol>
+    <div class="limits muted">
+      <span>Time left: <strong id="time-left">--:--</strong></span>
+      <span>Messages left: <strong id="messages-left">--</strong></span>
+    </div>
+
+    <!-- Shown instead of the chat if a crisis is detected -->
+    <section class="card crisis-box" id="crisis" hidden></section>
+
+    <div id="chat-area">
+      <div class="transcript" id="transcript" aria-live="polite"></div>
+
+      <!-- Small plan box: only shown from the "plan" stage onwards -->
+      <section class="card" id="plan-panel" hidden>
+        <label for="plan-text"><strong>My small plan</strong></label>
+        <textarea id="plan-text" rows="3" maxlength="500"
+          placeholder="One small, doable step, e.g. 'Go to the library for an hour on Tuesday'"></textarea>
+        <div class="row">
+          <button type="button" id="save-plan">Save plan</button>
+          <span class="muted" id="plan-saved" hidden>Saved.</span>
+        </div>
+      </section>
+
+      <form id="message-form">
+        <label for="message" class="muted">Your message</label>
+        <textarea id="message" rows="2" maxlength="1000" required></textarea>
+        <div class="row">
+          <button type="submit" id="send">Send</button>
+          <button type="button" class="secondary" id="move-on">Move on</button>
+        </div>
+      </form>
+      <p class="notice" id="error" hidden></p>
+    </div>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/session.js"></script>
+</body>
+</html>

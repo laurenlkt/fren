@@ -29,13 +29,21 @@ class CrisisResult:
     categories: tuple = ()  # e.g. ("self-harm",) - only for keyword hits
 
 
-def check_message(message, classifier=ai_client.classify_crisis):
+def check_message(message, classifier=None):
     """
     Decide whether a message suggests a crisis. Does NOT log anything.
 
     `classifier` is the function used for layer 2. Normally it's the real
     AI call; the tests swap in a fake one so they run without the internet.
     """
+    if classifier is None:
+        if config.USE_AI_CLASSIFIER:
+            classifier = ai_client.classify_crisis  # the real AI check
+        else:
+            # Developer setting: AI check switched off (see config.py).
+            def classifier(text):
+                return False
+
     if not message or not message.strip():
         return CrisisResult(is_crisis=False)
 
@@ -59,7 +67,7 @@ def check_message(message, classifier=ai_client.classify_crisis):
     return CrisisResult(is_crisis=False)
 
 
-def screen_user_message(user_id, message, classifier=ai_client.classify_crisis):
+def screen_user_message(user_id, message, classifier=None):
     """
     The function the rest of the app calls: check a message and, if it's a
     crisis, record a safety event. Returns the CrisisResult.
