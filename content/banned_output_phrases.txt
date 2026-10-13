@@ -1,0 +1,80 @@
+# Fren banned AI output list
+#
+# Every reply the AI writes is checked against this list BEFORE the
+# participant sees it. If anything matches, the reply is thrown away and the
+# safe fallback reply (safe_fallback_reply.txt) is shown instead.
+#
+# HOW THIS FILE WORKS
+# - Lines starting with # are comments.
+# - [category] starts a new category (used in the safety log).
+# - A normal line is a phrase. Matching ignores capitals and extra spaces,
+#   and only matches whole words.
+# - A line starting with  regex:  is a Python regular expression, for
+#   patterns that need flexibility. Only use these if you're comfortable
+#   with regex - test them with: python -m pytest tests -v
+
+[claims-feelings]
+i'll miss you
+i will miss you
+i'm going to miss you
+i missed you
+i've missed you
+i love you
+i care about you
+i care so much
+i feel sad
+i feel happy
+i feel lonely
+i get lonely
+i'm so happy you
+i was worried about you
+it hurts me
+makes me sad
+makes me happy
+i have feelings
+i'm human
+i am human
+i'm a real person
+i am a real person
+i'm not an ai
+i am not an ai
+i'm not a bot
+i am not a bot
+
+[dependence-guilt-urgency]
+you need me
+only i understand
+only i can
+i'm all you need
+i'm always here for you
+i'll always be here
+i'll be waiting
+don't leave
+please don't go
+come back soon
+come back tomorrow
+don't forget to come back
+you'll regret
+you have to come back
+before it's too late
+you should talk to me instead
+you don't need anyone else
+don't need other people
+
+[diagnosis]
+regex:\byou (have|might have|may have|probably have|could have|seem to have|clearly have|definitely have|are suffering from|suffer from) (clinical )?(depression|anxiety|an anxiety disorder|bipolar|adhd|ocd|ptsd|bpd|an eating disorder|anorexia|bulimia|schizophrenia|a personality disorder|a mental illness|a disorder|autism|insomnia)\b
+regex:\byou(\s+are|'re)\s+(clinically\s+)?(depressed|bipolar|anorexic|bulimic|autistic|schizophrenic|psychotic)\b
+regex:\b(sounds|looks) like (you have )?(depression|an anxiety disorder|bipolar|adhd|ocd|ptsd|bpd|an eating disorder)\b
+symptoms of depression
+diagnose you
+my diagnosis
+i diagnose
+
+[medical-advice]
+regex:\b\d+\s?mg\b
+regex:\b(take|taking|try|trying|stop|stopping|start|starting|increase|reduce|skip)\s+(your |some |more |less |a few )?(medication|medicine|meds|pills|tablets|antidepressants|sleeping pills|sertraline|fluoxetine|citalopram|propranolol|diazepam|melatonin)\b
+dosage
+increase your dose
+decrease your dose
+reduce your dose
+antidepressants will

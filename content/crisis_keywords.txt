@@ -1,0 +1,92 @@
+# Fren crisis keyword list
+#
+# HOW THIS FILE WORKS
+# - Lines starting with # are comments and are ignored.
+# - A line like [self-harm] starts a new CATEGORY. The category name is what
+#   gets logged (never the participant's words, unless config allows it).
+# - Every other line is a word or phrase. If a participant's message contains
+#   it, Fren treats the message as a possible crisis.
+# - Matching ignores capital letters, extra spaces and most punctuation.
+#   Hyphens count as spaces, so "self harm" also matches "self-harm".
+# - Phrases match whole words only: "die" would NOT match "diet".
+#
+# This list deliberately errs on the side of caution. A false alarm shows
+# someone the help numbers; a missed crisis is far worse.
+# Have this list reviewed by someone with safeguarding expertise.
+
+[suicide]
+suicide
+suicidal
+kill myself
+killing myself
+end my life
+ending my life
+take my own life
+taking my own life
+want to die
+wanna die
+wish i was dead
+wish i were dead
+better off dead
+better off without me
+no reason to live
+nothing to live for
+not worth living
+don't want to live
+dont want to live
+don't want to be alive
+dont want to be alive
+can't go on
+cant go on
+end it all
+ending it all
+goodbye forever
+unalive
+kms
+
+[self-harm]
+self harm
+self harming
+selfharm
+hurt myself
+hurting myself
+cut myself
+cutting myself
+burn myself
+burning myself
+overdose
+overdosed
+od on
+
+[abuse]
+abuse
+abused
+abusing me
+abusive
+hits me
+he hit me
+she hit me
+they hit me
+beats me
+beat me up
+raped
+rape
+sexually assaulted
+assaulted
+molested
+controlling me
+
+[danger]
+in danger
+not safe
+don't feel safe
+dont feel safe
+unsafe
+scared for my life
+afraid for my life
+going to hurt me
+gonna hurt me
+threatening me
+threatened to kill
+stalking me
+being followed
