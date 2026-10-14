@@ -4,8 +4,9 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 5 of 8 is done: the safety layer, the session flow
-> with its limits, AI replies inside each stage, and the reach-out draft.
+> **Build status:** Step 6 of 8 is done: the safety layer, the session flow
+> with its limits, AI replies inside each stage, the reach-out draft, and
+> the taper suggestion and "Looking back" review.
 
 ---
 
@@ -127,6 +128,7 @@ To wipe all the data, stop the server and delete `data/fren.db`.
 | The only code that calls the AI | `app/ai_client.py` |
 | Text on the session-ended screen | `content/closing_messages.json` |
 | The session state machine | `app/session_flow.py` |
+| The "suggest a longer gap" rule | `app/taper.py` |
 | Database code | `app/database.py` |
 | Web routes | `app/main.py` |
 | Pages | `static/*.html`, `static/session.js` |
@@ -152,8 +154,8 @@ onboarding ─► check-in (mood 1-5) ─► session ─► close screen
 - A new session can't start until the participant's chosen gap has passed
   since the last one ended.
 - **Chat messages are deleted when the session ends.** What's kept: mood,
-  start/end times, why it ended, the plan, and whether the human step was
-  taken.
+  start/end times, why it ended, the plan, whether the human step was
+  taken, how many drafts were asked for, and whether "Looking back" was seen.
 - If a crisis is detected, the session ends and the help message is shown.
 
 ### How each AI reply is made
@@ -188,6 +190,28 @@ In the "Reach out" stage, a panel appears under the chat:
 
 Drafts don't use up the 12 messages, but there are at most 3 per session
 (`MAX_DRAFTS_PER_SESSION` in `config.py`).
+
+### Looking back, and the longer-gap suggestion
+
+**Looking back** (`/review`): when the gap has passed and the participant
+comes back, they see one screen before the check-in. It shows:
+- their plan from last time, with a prompt to think about how it went (the
+  answer isn't asked for or stored)
+- "Did you get in touch?", only if last time they chose "I'll get in touch
+  after this session". "Yes" marks the human step as taken for that session.
+
+It's shown once. Starting a new session closes it even if it was skipped.
+
+**Longer gap (taper)**, in `app/taper.py`, with settings in `config.py`:
+- Fren looks at the check-in moods of the last 3 finished sessions.
+- "Stable or improving" means the mood never drops by more than 1 between
+  sessions, and the latest isn't lower than the first. So 3,3,4 and 3,2,3
+  count; 4,3,3 and 4,2,4 don't.
+- If any of those sessions ended in a crisis, no suggestion is made.
+- The suggestion is the next option up (1 day → 2 days → 3 days → 1 week).
+  It appears on the close screen and on the "Looking back" screen.
+- Yes changes the gap straight away. Either answer stops the question until
+  there have been 3 more sessions.
 
 **Data sent to Anthropic:** each participant message goes to the API twice
 (the crisis check, then the reply). The reply call also includes the chat so far.

@@ -23,7 +23,7 @@ import json
 from datetime import timedelta
 
 import config
-from app import ai_client, database
+from app import ai_client, database, taper
 from app.safety import crisis_check, output_filter
 
 ENDED = "ended"  # the stage value once a session has finished
@@ -100,8 +100,6 @@ def gap_length(user):
     The participant's minimum gap as a timedelta.
     In DEV_MODE the number is read as minutes instead of hours, for testing.
     """
-    if not config.USE_AI_REPLIES:
-        warnings.append("AI replies are OFF (placeholder replies). Not for participants.")
     if config.DEV_MODE:
         return timedelta(minutes=user["min_gap_hours"])
     return timedelta(hours=user["min_gap_hours"])
@@ -215,6 +213,12 @@ def start_session(user_id, mood, now=None):
             "Your next session isn't available yet.",
             next_available_at=database.to_text(available),
         )
+
+    # Starting a new session closes the "look back" for the previous one,
+    # even if it was skipped, so it never pops up later out of context.
+    last = database.get_last_ended_session(user_id)
+    if last is not None and not last["reviewed"]:
+        database.update_session(last["id"], reviewed=1)
 
     session_id = database.create_session(user_id, mood, _now(now))
     database.add_message(session_id, "fren", stage_prompt(config.STAGES[0]))
@@ -383,6 +387,59 @@ def record_human_step(user_id, choice, now=None):
 
 
 # ---------------------------------------------------------------------------
+# Looking back, before the next check-in
+# ---------------------------------------------------------------------------
+def review_for(user, now=None):
+    """
+    What the "Looking back" screen shows, or None if there's nothing to
+    review. It appears once, when the participant's gap has passed and
+    they come back to start a new session.
+    """
+    if next_available_at(user, now) is not None:
+        return None  # still inside the gap
+    last = database.get_last_ended_session(user["id"])
+    if last is None or last["reviewed"]:
+        return None
+    return {
+        "plan_text": last["plan_text"],
+        # Only ask "did you get in touch?" if they said they'd do it later.
+        "ask_about_reaching_out": last["human_step_choice"] == "later",
+    }
+
+
+def complete_review(user_id, got_in_touch=None, now=None):
+    """
+    The participant finished looking back.
+    got_in_touch: True / False if they answered "did you get in touch?",
+    or None if they weren't asked or didn't answer.
+    """
+    user = database.get_user(user_id)
+    if user is None:
+        raise SessionError("no_user", "Please complete onboarding first.")
+    if database.get_open_session(user_id) is not None:
+        raise SessionError("in_session", "You're in a session right now.")
+
+    last = database.get_last_ended_session(user_id)
+    if last is None or last["reviewed"]:
+        return  # nothing to do (e.g. pressed twice)
+
+    if got_in_touch is True and last["human_step_choice"] == "later":
+        # They did reach out after the session: the human step was taken.
+        database.update_session(last["id"], human_step_choice="sent", human_step_taken=1)
+    database.update_session(last["id"], reviewed=1)
+
+
+def answer_taper(user_id, accept):
+    """The participant said yes or no to a longer gap."""
+    user = database.get_user(user_id)
+    if user is None:
+        raise SessionError("no_user", "Please complete onboarding first.")
+    if database.get_open_session(user_id) is not None:
+        raise SessionError("in_session", "You're in a session right now.")
+    taper.answer(user, accept)
+
+
+# ---------------------------------------------------------------------------
 # What the web pages need to draw themselves
 # ---------------------------------------------------------------------------
 def get_status(user_id, now=None):
@@ -400,6 +457,9 @@ def get_status(user_id, now=None):
         "open_session": None,
         "last_session": None,
         "next_available_at": None,
+        "review": None,             # the "Looking back" screen, if due
+        "taper_suggestion": None,   # a suggested longer gap, if due
+        "gap_hours": user["min_gap_hours"],
     }
 
     if session is not None and session["ended_at"] is None:
@@ -414,6 +474,8 @@ def get_status(user_id, now=None):
                 "closing_message": _load_json("closing_messages.json")[last["end_reason"]],
                 "plan_text": last["plan_text"],
             }
+        status["review"] = review_for(user, now)
+        status["taper_suggestion"] = taper.suggestion_for(user)
 
     return status
 

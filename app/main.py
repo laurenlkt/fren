@@ -7,6 +7,7 @@ Pages (HTML files in static/):
   /checkin     - mood scale, starts a session
   /session     - the session itself (chat, plan box, progress bar)
   /close       - session close screen
+  /review      - "Looking back" at the last session, before the next check-in
   /help        - "Get help now": the fixed crisis message
 
 API (used by the pages' JavaScript, all under /api/...):
@@ -18,6 +19,8 @@ API (used by the pages' JavaScript, all under /api/...):
   POST /api/session/plan      save the small plan
   POST /api/session/draft     reach-out step: get a draft message
   POST /api/session/human-step  reach-out step: sent / later / skipped
+  POST /api/review            finish "Looking back" (did you get in touch?)
+  POST /api/taper             yes / no to a suggested longer gap
 
 Who is who: at onboarding Fren sets a cookie holding a random anonymous ID.
 There are no accounts, names or emails.
@@ -79,8 +82,11 @@ def home(request: Request):
     user_id = current_user_id(request)
     if user_id is None:
         return RedirectResponse("/onboarding")
-    if database.get_open_session(user_id) is not None:
+    status = session_flow.get_status(user_id)
+    if status["open_session"]:
         return RedirectResponse("/session")
+    if status["review"]:
+        return RedirectResponse("/review")
     return RedirectResponse("/checkin")
 
 
@@ -102,6 +108,11 @@ def session_page():
 @app.get("/close")
 def close_page():
     return page("close")
+
+
+@app.get("/review")
+def review_page():
+    return page("review")
 
 
 @app.get("/help", response_class=HTMLResponse)
@@ -157,6 +168,14 @@ class DraftRequest(BaseModel):
 
 class HumanStepRequest(BaseModel):
     choice: str
+
+
+class ReviewRequest(BaseModel):
+    got_in_touch: bool | None = None   # None = not asked / not answered
+
+
+class TaperRequest(BaseModel):
+    accept: bool
 
 
 def require_user(request):
@@ -242,4 +261,16 @@ def draft(body: DraftRequest, request: Request):
 @app.post("/api/session/human-step")
 def human_step(body: HumanStepRequest, request: Request):
     session_flow.record_human_step(require_user(request), body.choice)
+    return {"ok": True}
+
+
+@app.post("/api/review")
+def review(body: ReviewRequest, request: Request):
+    session_flow.complete_review(require_user(request), body.got_in_touch)
+    return {"ok": True}
+
+
+@app.post("/api/taper")
+def taper_answer(body: TaperRequest, request: Request):
+    session_flow.answer_taper(require_user(request), body.accept)
     return {"ok": True}

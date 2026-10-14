@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Looking back</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <h1>Looking back</h1>
+
+    <section class="card" id="plan-card">
+      <h2>Your small plan from last time</h2>
+      <p id="plan-text"></p>
+      <p class="muted">
+        Take a moment to think about how it went. However it went is fine:
+        plans are just a starting point. You don't need to tell Fren.
+      </p>
+    </section>
+
+    <!-- Only if they said "I'll get in touch after this session" last time -->
+    <section class="card" id="reach-out-card" hidden>
+      <h2>Reaching out</h2>
+      <fieldset class="choices">
+        <legend>Last time you planned to get in touch with someone. Did you?</legend>
+        <label><input type="radio" name="got-in-touch" value="yes"> Yes</label>
+        <label><input type="radio" name="got-in-touch" value="no"> Not yet</label>
+      </fieldset>
+      <p class="muted">Either answer is fine.</p>
+    </section>
+
+    <!-- Shown only when Fren suggests a longer gap (see app/taper.py) -->
+    <section class="card" id="taper-card" hidden>
+      <h2>A longer gap?</h2>
+      <p>
+        Your check-ins have been steady or improving over your last few sessions.
+        Would you like to make the gap between sessions longer, from
+        <strong id="taper-current"></strong> to <strong id="taper-suggested"></strong>?
+      </p>
+      <p class="muted">It's completely up to you. You can change it again in Settings.</p>
+      <div class="row">
+        <button type="button" id="taper-yes">Yes, make it longer</button>
+        <button type="button" class="secondary" id="taper-no">No, keep it as it is</button>
+      </div>
+      <p class="muted" id="taper-done" hidden></p>
+    </section>
+
+    <p><button type="button" id="continue">Continue to check-in</button></p>
+    <p class="notice" id="error" hidden></p>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+    async function setup() {
+      const result = await api("/api/status");
+      if (!result.ok) return;
+      const status = result.data;
+      showDevWarnings(status.dev_warnings);
+
+      if (status.open_session) { window.location.href = "/session"; return; }
+      if (!status.review) { window.location.href = "/checkin"; return; }
+
+      document.getElementById("plan-text").textContent =
+        status.review.plan_text || "You didn't save a plan last time, and that's fine.";
+      document.getElementById("reach-out-card").hidden = !status.review.ask_about_reaching_out;
+      setUpTaperCard(status.taper_suggestion);
+    }
+
+    document.getElementById("continue").addEventListener("click", async () => {
+      const picked = document.querySelector("input[name=got-in-touch]:checked");
+      const body = { got_in_touch: picked ? picked.value === "yes" : null };
+      const result = await api("/api/review", body);
+      if (result.ok) {
+        window.location.href = "/checkin";
+      } else {
+        showNotice(document.getElementById("error"), result.data.message || "Something went wrong.");
+      }
+    });
+
+    setup();
+  </script>
+</body>
+</html>

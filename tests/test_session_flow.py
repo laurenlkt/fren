@@ -236,3 +236,15 @@ def test_overlong_plan_and_message_are_rejected(user_id):
         session_flow.move_on(user_id, now=T0)
     with pytest.raises(SessionError):
         session_flow.save_plan(user_id, "x" * (config.MAX_PLAN_LENGTH + 1), now=T0)
+
+
+@pytest.mark.parametrize("setting", ["USE_AI_REPLIES", "USE_AI_CLASSIFIER", "DEV_MODE"])
+def test_developer_settings_do_not_break_the_gap(user_id, monkeypatch, setting):
+    # Regression test: a mistake once made gap_length() crash when
+    # USE_AI_REPLIES was False and the participant had a finished session.
+    monkeypatch.setattr(config, setting, setting == "DEV_MODE")
+    session_flow.start_session(user_id, mood=3, now=T0)
+    for _ in range(6):
+        session_flow.move_on(user_id, now=T0)
+    status = session_flow.get_status(user_id, now=T0 + timedelta(minutes=1))
+    assert status["next_available_at"] is not None

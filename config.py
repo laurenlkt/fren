@@ -100,6 +100,14 @@ CRISIS_ENDS_SESSION = True
 GAP_CHOICES_HOURS = [24, 48, 72, 168]   # 1 day, 2 days, 3 days, 1 week
 DEFAULT_GAP_HOURS = 24
 
+# Taper: if the check-in mood has been stable or improving over this many
+# sessions in a row, Fren suggests moving to the next longer gap in
+# GAP_CHOICES_HOURS. "Stable or improving" means: it never drops by more
+# than TAPER_MAX_DROP from one session to the next, AND the latest mood is
+# not lower than the first. Sessions that ended in a crisis never count.
+TAPER_SESSIONS = 3
+TAPER_MAX_DROP = 1
+
 # Mood scale used at check-in: 1 = very low ... 5 = very good.
 MOOD_MIN = 1
 MOOD_MAX = 5

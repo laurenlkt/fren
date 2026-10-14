@@ -45,6 +45,8 @@
 
       if (result.data.open_session) {
         window.location.href = "/session";  // already in a session
+      } else if (result.data.review) {
+        window.location.href = "/review";   // look back at last time first
       } else if (result.data.next_available_at) {
         document.getElementById("next-time").textContent =
           formatDateTime(result.data.next_available_at);

@@ -38,3 +38,35 @@ function showNotice(element, text) {
   element.textContent = text;
   element.hidden = !text;
 }
+
+// Describe a number of hours in words, e.g. 48 -> "2 days".
+function describeHours(hours) {
+  if (hours === 168) return "1 week";
+  if (hours % 24 === 0) return hours / 24 + (hours === 24 ? " day" : " days");
+  return hours + " hours";
+}
+
+// Fill in and show the "longer gap" suggestion card, if there is one.
+// The card needs elements with ids: taper-card, taper-current, taper-suggested,
+// taper-yes, taper-no, taper-done.
+function setUpTaperCard(suggestion) {
+  if (!suggestion) return;
+  document.getElementById("taper-current").textContent = describeHours(suggestion.current_hours);
+  document.getElementById("taper-suggested").textContent = describeHours(suggestion.suggested_hours);
+  document.getElementById("taper-card").hidden = false;
+
+  async function answer(accept) {
+    const result = await api("/api/taper", { accept: accept });
+    if (!result.ok) return;
+    document.getElementById("taper-yes").disabled = true;
+    document.getElementById("taper-no").disabled = true;
+    const done = document.getElementById("taper-done");
+    done.textContent = accept
+      ? "Done. Your gap between sessions is now " + describeHours(suggestion.suggested_hours) + "."
+      : "No problem. Your gap stays at " + describeHours(suggestion.current_hours) + ".";
+    done.hidden = false;
+    if (typeof onTaperAnswered === "function") onTaperAnswered();
+  }
+  document.getElementById("taper-yes").addEventListener("click", () => answer(true));
+  document.getElementById("taper-no").addEventListener("click", () => answer(false));
+}

@@ -72,13 +72,6 @@
 
   <script src="/static/common.js"></script>
   <script>
-    // Describe a number of hours in words, e.g. 48 -> "2 days".
-    function describeHours(hours) {
-      if (hours === 168) return "1 week";
-      if (hours % 24 === 0) return hours / 24 + (hours === 24 ? " day" : " days");
-      return hours + " hours";
-    }
-
     async function setup() {
       const result = await fetch("/api/config").then(r => r.json());
       showDevWarnings(result.dev_warnings);

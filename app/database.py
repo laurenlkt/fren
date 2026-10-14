@@ -32,7 +32,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id             TEXT PRIMARY KEY,   -- random anonymous ID
                 created_at     TEXT NOT NULL,
-                min_gap_hours  REAL NOT NULL       -- chosen by the participant
+                min_gap_hours  REAL NOT NULL,      -- chosen by the participant
+                taper_answered_session_id INTEGER  -- last session a longer-gap suggestion was answered after
             );
 
             CREATE TABLE IF NOT EXISTS sessions (
@@ -48,7 +49,8 @@ def init_db():
                 plan_text           TEXT,
                 human_step_taken    INTEGER NOT NULL DEFAULT 0,  -- 1 = participant says they sent it
                 human_step_choice   TEXT,              -- sent / later / skipped (empty = not answered)
-                draft_count         INTEGER NOT NULL DEFAULT 0   -- reach-out drafts asked for
+                draft_count         INTEGER NOT NULL DEFAULT 0,  -- reach-out drafts asked for
+                reviewed            INTEGER NOT NULL DEFAULT 0   -- 1 = looked back at it before the next check-in
             );
 
             CREATE TABLE IF NOT EXISTS session_messages (
@@ -72,16 +74,29 @@ def init_db():
         _add_missing_columns(connection)
 
 
+# Columns added after step 3. Older databases get them added automatically.
+_NEWER_COLUMNS = {
+    "sessions": {
+        "human_step_choice": "TEXT",
+        "draft_count": "INTEGER NOT NULL DEFAULT 0",
+        "reviewed": "INTEGER NOT NULL DEFAULT 0",
+    },
+    "users": {
+        "taper_answered_session_id": "INTEGER",
+    },
+}
+
+
 def _add_missing_columns(connection):
     """
     Databases made by an earlier version of Fren may be missing newer
     columns. Add them, so you don't have to delete your test data.
     """
-    existing = [row["name"] for row in connection.execute("PRAGMA table_info(sessions)")]
-    if "human_step_choice" not in existing:
-        connection.execute("ALTER TABLE sessions ADD COLUMN human_step_choice TEXT")
-    if "draft_count" not in existing:
-        connection.execute("ALTER TABLE sessions ADD COLUMN draft_count INTEGER NOT NULL DEFAULT 0")
+    for table, columns in _NEWER_COLUMNS.items():
+        existing = [row["name"] for row in connection.execute(f"PRAGMA table_info({table})")]
+        for column, column_type in columns.items():
+            if column not in existing:
+                connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +145,13 @@ def set_user_gap(user_id, min_gap_hours):
         )
 
 
+def set_taper_answered(user_id, session_id):
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE users SET taper_answered_session_id = ? WHERE id = ?", (session_id, user_id)
+        )
+
+
 # ---------------------------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------------------------
@@ -160,6 +182,16 @@ def get_open_session(user_id):
         ).fetchone()
 
 
+def get_recent_ended_sessions(user_id, how_many):
+    """The user's most recent finished sessions, newest first."""
+    with get_connection() as connection:
+        return connection.execute(
+            "SELECT * FROM sessions WHERE user_id = ? AND ended_at IS NOT NULL "
+            "ORDER BY id DESC LIMIT ?",
+            (user_id, how_many),
+        ).fetchall()
+
+
 def get_last_ended_session(user_id):
     """The user's most recent finished session, or None."""
     with get_connection() as connection:
@@ -175,7 +207,7 @@ def get_last_ended_session(user_id):
 _UPDATABLE_SESSION_COLUMNS = {
     "ended_at", "end_reason", "stage", "user_message_count",
     "stage_message_count", "plan_text", "human_step_taken",
-    "human_step_choice", "draft_count",
+    "human_step_choice", "draft_count", "reviewed",
 }
 
 

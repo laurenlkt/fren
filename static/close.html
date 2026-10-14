@@ -25,6 +25,22 @@
       <p id="plan-text"></p>
     </section>
 
+    <!-- Shown only when Fren suggests a longer gap (see app/taper.py) -->
+    <section class="card" id="taper-card" hidden>
+      <h2>A longer gap?</h2>
+      <p>
+        Your check-ins have been steady or improving over your last few sessions.
+        Would you like to make the gap between sessions longer, from
+        <strong id="taper-current"></strong> to <strong id="taper-suggested"></strong>?
+      </p>
+      <p class="muted">It's completely up to you. You can change it again in Settings.</p>
+      <div class="row">
+        <button type="button" id="taper-yes">Yes, make it longer</button>
+        <button type="button" class="secondary" id="taper-no">No, keep it as it is</button>
+      </div>
+      <p class="muted" id="taper-done" hidden></p>
+    </section>
+
     <section class="card">
       <p id="next-session"></p>
       <p class="muted">
@@ -57,9 +73,20 @@
         }
       }
 
-      document.getElementById("next-session").textContent = status.next_available_at
-        ? "Your next session can start from " + formatDateTime(status.next_available_at) + "."
+      showNextSession(status.next_available_at);
+      setUpTaperCard(status.taper_suggestion);
+    }
+
+    function showNextSession(nextAvailableAt) {
+      document.getElementById("next-session").textContent = nextAvailableAt
+        ? "Your next session can start from " + formatDateTime(nextAvailableAt) + "."
         : "You can start a new session whenever you like.";
+    }
+
+    // After a yes/no on the longer gap, the next session time may change.
+    async function onTaperAnswered() {
+      const result = await api("/api/status");
+      if (result.ok) showNextSession(result.data.next_available_at);
     }
 
     setup();
