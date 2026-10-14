@@ -93,3 +93,9 @@ legend { font-weight: bold; margin-bottom: 8px; }
 .bubble.user { background: #dcebf5; align-self: flex-end; }
 .row { display: flex; gap: 8px; margin-top: 8px; }
 .crisis-box { border: 2px solid #b3261e; }
+
+/* Reach-out panel */
+#reach-out-panel h2 { margin-top: 0; font-size: 1.2rem; }
+#reach-out-panel label { display: block; margin-top: 12px; }
+#reach-out-panel .choices label { margin-top: 6px; }
+#reach-out-panel fieldset { margin-top: 16px; }

@@ -4,8 +4,8 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 4 of 8 is done: the safety layer, the session flow
-> with its limits, and AI replies inside each stage.
+> **Build status:** Step 5 of 8 is done: the safety layer, the session flow
+> with its limits, AI replies inside each stage, and the reach-out draft.
 
 ---
 
@@ -113,6 +113,7 @@ To wipe all the data, stop the server and delete `data/fren.db`.
 | **Fren's rules for the AI (system prompt)** | `content/system_prompt.txt` |
 | What the AI is told about each stage | `content/stage_instructions.json` |
 | Reply shown if the AI can't reply | `content/ai_unavailable_reply.txt` |
+| Instructions for drafting reach-out messages | `content/draft_prompt.txt` |
 | Crisis keyword list | `content/crisis_keywords.txt` |
 | Crisis classifier prompt | `content/crisis_classifier_prompt.txt` |
 | Help message (UK services) | `content/crisis_message.html` |
@@ -167,6 +168,26 @@ onboarding ─► check-in (mood 1-5) ─► session ─► close screen
    is shown instead and a safety event is logged.
 5. If the AI call fails (no key, no internet, the model declines, the reply
    is cut off), `ai_unavailable_reply.txt` is shown and the session carries on.
+
+### The reach-out step
+
+In the "Reach out" stage, a panel appears under the chat:
+
+1. The participant types **who** they could contact and **roughly what to say**.
+2. "Help me draft it" runs the crisis check on what they typed, then asks
+   the AI for a short draft in their own voice (`content/draft_prompt.txt`).
+   Only those two boxes are sent, not the session chat.
+3. The draft goes through the output filter. Diagnosis and medical rules
+   apply, but the rules about the AI's own feelings don't, because the
+   draft is the participant's words to someone they know ("I've missed you"
+   is fine there).
+4. The participant edits it, copies it, and sends it themselves. **Fren
+   never sends anything and never saves the draft, the name or the request.**
+5. They choose: "I've sent it", "I'll get in touch after this session", or
+   "Not this time". Only "sent" counts as the human step taken.
+
+Drafts don't use up the 12 messages, but there are at most 3 per session
+(`MAX_DRAFTS_PER_SESSION` in `config.py`).
 
 **Data sent to Anthropic:** each participant message goes to the API twice
 (the crisis check, then the reply). The reply call also includes the chat so far.

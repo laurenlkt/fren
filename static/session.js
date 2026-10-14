@@ -68,6 +68,16 @@ function draw(session) {
   const planText = document.getElementById("plan-text");
   if (session.plan_text && !planText.value) planText.value = session.plan_text;
 
+  // Reach-out panel: only during the human_step stage
+  document.getElementById("reach-out-panel").hidden = session.stage !== "human_step";
+  document.getElementById("drafts-left").textContent =
+    session.drafts_left + (session.drafts_left === 1 ? " draft left" : " drafts left");
+  document.getElementById("make-draft").disabled = session.drafts_left <= 0;
+  if (session.human_step_choice) {
+    const radio = document.querySelector(`input[name=human-step][value=${session.human_step_choice}]`);
+    if (radio) radio.checked = true;
+  }
+
   // On the last stage, "Move on" finishes the session
   document.getElementById("move-on").textContent =
     session.stage === "close" ? "Finish session" : "Move on";
@@ -154,6 +164,56 @@ document.getElementById("save-plan").addEventListener("click", async () => {
   const result = await act("/api/session/plan", { plan_text: text });
   document.getElementById("plan-saved").hidden = !(result && result.ok);
 });
+
+// --- Reach-out step ---------------------------------------------------------
+document.getElementById("make-draft").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true;
+  const button = document.getElementById("make-draft");
+  button.disabled = true;
+  button.textContent = "Drafting...";
+  showNotice(errorBox, "");
+  try {
+    const result = await api("/api/session/draft", {
+      recipient: document.getElementById("recipient").value,
+      what_to_say: document.getElementById("what-to-say").value,
+    });
+    if (result.ok && result.data.status === "crisis") {
+      showCrisis(result.data.crisis_html);
+      return;
+    }
+    if (result.ok) {
+      // The draft only lives here, on the page. Fren doesn't save it.
+      document.getElementById("draft").value = result.data.draft;
+      document.getElementById("draft-area").hidden = false;
+      document.getElementById("copied").hidden = true;
+    } else {
+      showNotice(errorBox, result.data.message || "Something went wrong.");
+    }
+    await refresh();
+  } finally {
+    busy = false;
+    button.textContent = "Help me draft it";
+  }
+});
+
+document.getElementById("copy-draft").addEventListener("click", async () => {
+  const draft = document.getElementById("draft");
+  try {
+    await navigator.clipboard.writeText(draft.value);
+  } catch {
+    draft.select();  // if copying isn't allowed, select the text so it's easy to copy by hand
+    document.execCommand("copy");
+  }
+  document.getElementById("copied").hidden = false;
+});
+
+for (const radio of document.querySelectorAll("input[name=human-step]")) {
+  radio.addEventListener("change", async () => {
+    const result = await act("/api/session/human-step", { choice: radio.value });
+    document.getElementById("choice-saved").hidden = !(result && result.ok);
+  });
+}
 
 // Start: show dev warnings once, then draw the session.
 api("/api/status").then((result) => {

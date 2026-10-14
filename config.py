@@ -48,6 +48,7 @@ AI_TIMEOUT_SECONDS = 30
 # the length of the visible 1-3 sentence reply.
 REPLY_MAX_TOKENS = 4000
 REPLY_EFFORT = "low"
+DRAFT_MAX_TOKENS = 4000
 
 # ---------------------------------------------------------------------------
 # Safety logging
@@ -81,6 +82,12 @@ STAGE_MESSAGE_BUDGET = {
 # Longest message a participant can send (characters).
 MAX_MESSAGE_LENGTH = 1000
 MAX_PLAN_LENGTH = 500
+
+# Reach-out step: how many message drafts a participant can ask the AI
+# for in one session. Drafts don't use up the 12 messages.
+MAX_DRAFTS_PER_SESSION = 3
+MAX_RECIPIENT_LENGTH = 100
+MAX_DRAFT_REQUEST_LENGTH = 500
 
 # If a crisis is detected mid-session, end the session (the participant
 # sees the help message instead). Recommended: True.

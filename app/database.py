@@ -46,7 +46,9 @@ def init_db():
                 stage_message_count INTEGER NOT NULL DEFAULT 0,
                 mood                INTEGER NOT NULL,  -- check-in mood score
                 plan_text           TEXT,
-                human_step_taken    INTEGER NOT NULL DEFAULT 0   -- 0 = no, 1 = yes
+                human_step_taken    INTEGER NOT NULL DEFAULT 0,  -- 1 = participant says they sent it
+                human_step_choice   TEXT,              -- sent / later / skipped (empty = not answered)
+                draft_count         INTEGER NOT NULL DEFAULT 0   -- reach-out drafts asked for
             );
 
             CREATE TABLE IF NOT EXISTS session_messages (
@@ -67,6 +69,19 @@ def init_db():
             );
             """
         )
+        _add_missing_columns(connection)
+
+
+def _add_missing_columns(connection):
+    """
+    Databases made by an earlier version of Fren may be missing newer
+    columns. Add them, so you don't have to delete your test data.
+    """
+    existing = [row["name"] for row in connection.execute("PRAGMA table_info(sessions)")]
+    if "human_step_choice" not in existing:
+        connection.execute("ALTER TABLE sessions ADD COLUMN human_step_choice TEXT")
+    if "draft_count" not in existing:
+        connection.execute("ALTER TABLE sessions ADD COLUMN draft_count INTEGER NOT NULL DEFAULT 0")
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +175,7 @@ def get_last_ended_session(user_id):
 _UPDATABLE_SESSION_COLUMNS = {
     "ended_at", "end_reason", "stage", "user_message_count",
     "stage_message_count", "plan_text", "human_step_taken",
+    "human_step_choice", "draft_count",
 }
 
 

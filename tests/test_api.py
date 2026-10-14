@@ -78,3 +78,18 @@ def test_no_second_session_straight_after_one_ends(client):
 def test_every_page_has_the_help_button(client, path):
     html = client.get(path).text
     assert 'href="/help"' in html
+
+
+def test_reach_out_draft_and_choice(client):
+    onboard(client)
+    client.post("/api/session/start", json={"mood": 3})
+    for _ in range(4):
+        client.post("/api/session/next")  # -> human_step
+    reply = client.post("/api/session/draft",
+                        json={"recipient": "my brother", "what_to_say": "catch up soon"}).json()
+    assert reply["status"] == "ok"
+    assert reply["draft"]
+    assert client.post("/api/session/human-step", json={"choice": "later"}).status_code == 200
+    status = client.get("/api/status").json()["open_session"]
+    assert status["human_step_choice"] == "later"
+    assert status["drafts_left"] == 2

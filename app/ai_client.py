@@ -1,9 +1,10 @@
 """
 The only file in Fren that talks to the Anthropic API.
 
-It does two jobs:
+It does three jobs:
   - classify_crisis(): the AI half of the crisis check
   - generate_reply():  Fren's reply inside the current session stage
+  - draft_message():   a draft message for the reach-out step
 
 The API key is read automatically by the Anthropic library from the
 ANTHROPIC_API_KEY environment variable. It is never written in the code.
@@ -19,6 +20,7 @@ import config
 CLASSIFIER_PROMPT_FILE = config.CONTENT_DIR / "crisis_classifier_prompt.txt"
 SYSTEM_PROMPT_FILE = config.CONTENT_DIR / "system_prompt.txt"
 STAGE_INSTRUCTIONS_FILE = config.CONTENT_DIR / "stage_instructions.json"
+DRAFT_PROMPT_FILE = config.CONTENT_DIR / "draft_prompt.txt"
 
 # This "schema" forces the model to reply with exactly {"crisis": true/false}
 # and nothing else. It's called "structured output".
@@ -138,10 +140,36 @@ def generate_reply(stage, mood, transcript):
     if not messages or messages[-1]["role"] != "user":
         raise ValueError("The last message must be from the participant")
 
+    return _ask_for_text(build_system_prompt(stage, mood), messages, config.REPLY_MAX_TOKENS)
+
+
+def draft_message(recipient, what_to_say):
+    """
+    Ask the AI to draft a short message, in the participant's voice, to a
+    real person or service. Only the two things the participant typed into
+    the reach-out box are sent, NOT the session chat, so nothing private
+    from the session ends up in the draft by accident.
+
+    Returns the draft text. Raises an exception if anything goes wrong.
+    """
+    system_prompt = DRAFT_PROMPT_FILE.read_text(encoding="utf-8")
+    request = (
+        f"<recipient>\n{recipient}\n</recipient>\n"
+        f"<what_to_say>\n{what_to_say}\n</what_to_say>"
+    )
+    messages = [{"role": "user", "content": request}]
+    return _ask_for_text(system_prompt, messages, config.DRAFT_MAX_TOKENS)
+
+
+def _ask_for_text(system_prompt, messages, max_tokens):
+    """
+    Shared by generate_reply() and draft_message(): send one request and
+    return the text of the answer, or raise an exception if it's unusable.
+    """
     response = get_client().beta.messages.create(
         model=config.MODEL_NAME,
-        max_tokens=config.REPLY_MAX_TOKENS,
-        system=build_system_prompt(stage, mood),
+        max_tokens=max_tokens,
+        system=system_prompt,
         messages=messages,
         output_config={"effort": config.REPLY_EFFORT},
         # If the model declines to answer, the API retries on a suitable model.
@@ -150,13 +178,13 @@ def generate_reply(stage, mood, transcript):
     )
 
     if response.stop_reason == "refusal":
-        raise RuntimeError("The model declined to reply")
+        raise RuntimeError("The model declined to answer")
     if response.stop_reason == "max_tokens":
-        # The reply was cut off part-way. Better to show nothing than half.
-        raise RuntimeError("The reply was too long and got cut off")
+        # The answer was cut off part-way. Better to show nothing than half.
+        raise RuntimeError("The answer was too long and got cut off")
 
     # The response can contain "thinking" parts too; we only want the text.
     text = "".join(block.text for block in response.content if block.type == "text").strip()
     if not text:
-        raise RuntimeError("The model returned an empty reply")
+        raise RuntimeError("The model returned an empty answer")
     return text

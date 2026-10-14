@@ -34,6 +34,13 @@ def fake_generate_reply(stage, mood, transcript):
     return FAKE_REPLY
 
 
+FAKE_DRAFT = "Hi, I've missed you. Fancy a coffee this week?"
+
+
+def fake_draft_message(recipient, what_to_say):
+    return FAKE_DRAFT
+
+
 @pytest.fixture(autouse=True)
 def temporary_database(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATABASE_PATH", tmp_path / "test.db")
@@ -46,3 +53,4 @@ def fake_ai(request, monkeypatch):
         return  # live tests use the real AI
     monkeypatch.setattr(ai_client, "classify_crisis", fake_classifier)
     monkeypatch.setattr(ai_client, "generate_reply", fake_generate_reply)
+    monkeypatch.setattr(ai_client, "draft_message", fake_draft_message)

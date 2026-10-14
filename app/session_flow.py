@@ -294,6 +294,94 @@ def save_plan(user_id, plan_text, now=None):
     database.update_session(session["id"], plan_text=plan_text)
 
 
+# The answers a participant can give at the reach-out step.
+HUMAN_STEP_CHOICES = ("sent", "later", "skipped")
+
+
+def draft_reach_out(user_id, recipient, what_to_say, classifier=None, now=None):
+    """
+    Reach-out step: ask the AI to draft a message the participant can send
+    THEMSELVES to a real person or service. Fren never sends anything, and
+    the draft is never saved: it only goes back to the participant's page.
+
+    Returns {"status": "ok", "draft": "..."} or {"status": "crisis"}.
+    """
+    session = _get_open_session_or_fail(user_id, now)
+
+    if session["stage"] != "human_step":
+        raise SessionError("wrong_stage", "Drafting a message is part of the reaching-out step.")
+
+    recipient = (recipient or "").strip()
+    what_to_say = (what_to_say or "").strip()
+    if not recipient or not what_to_say:
+        raise SessionError("empty", "Please fill in who it's for and roughly what to say.")
+    if len(recipient) > config.MAX_RECIPIENT_LENGTH or len(what_to_say) > config.MAX_DRAFT_REQUEST_LENGTH:
+        raise SessionError("too_long", "Please make that a bit shorter.")
+
+    if session["draft_count"] >= config.MAX_DRAFTS_PER_SESSION:
+        raise SessionError(
+            "draft_limit",
+            "That's all the drafts for this session. You can edit the last one "
+            "yourself, or write your own.",
+        )
+    database.update_session(session["id"], draft_count=session["draft_count"] + 1)
+
+    # --- SAFETY FIRST: what they typed gets the same crisis check as chat ---
+    crisis = crisis_check.screen_user_message(user_id, f"{recipient}\n{what_to_say}", classifier)
+    if crisis.is_crisis:
+        if config.CRISIS_ENDS_SESSION:
+            close_session(database.get_session(session["id"]), "crisis", now)
+        return {"status": "crisis"}
+
+    if not config.USE_AI_REPLIES:
+        draft = f"[scripted draft] Hi, I've been meaning to get in touch. {what_to_say}"
+    else:
+        try:
+            draft = ai_client.draft_message(recipient, what_to_say)
+        except Exception as error:
+            print(f"AI draft failed: {type(error).__name__}: {error}")  # for you, in the terminal
+            raise SessionError(
+                "draft_failed",
+                "Fren couldn't write a draft just now. You could try again, "
+                "or write the message in your own words.",
+            )
+
+    # Drafts get the output filter too (minus the rules about the AI's own
+    # feelings, since the draft is in the participant's voice).
+    check = output_filter.screen_ai_reply(
+        user_id, draft, skip_categories=output_filter.NOT_CHECKED_FOR_DRAFTS
+    )
+    if check.blocked:
+        raise SessionError(
+            "draft_blocked",
+            "Fren couldn't write a suitable draft for that. You could try "
+            "describing it differently, or write it in your own words.",
+        )
+
+    return {"status": "ok", "draft": draft}
+
+
+def record_human_step(user_id, choice, now=None):
+    """
+    The participant says what they'll do about reaching out:
+      "sent"    - they've sent it (or called, or met)
+      "later"   - they plan to send it after the session
+      "skipped" - not this time (that's fine; no pressure)
+    Only "sent" counts as the human step being taken. In step 6 the review
+    asks people who chose "later" whether they did.
+    """
+    session = _get_open_session_or_fail(user_id, now)
+
+    if config.STAGES.index(session["stage"]) < config.STAGES.index("human_step"):
+        raise SessionError("wrong_stage", "This comes a little later in the session.")
+    if choice not in HUMAN_STEP_CHOICES:
+        raise SessionError("bad_choice", "Please pick one of the options.")
+
+    database.update_session(
+        session["id"], human_step_choice=choice, human_step_taken=1 if choice == "sent" else 0
+    )
+
+
 # ---------------------------------------------------------------------------
 # What the web pages need to draw themselves
 # ---------------------------------------------------------------------------
@@ -340,6 +428,8 @@ def _describe_open_session(session, now):
         "seconds_left": max(0, int(seconds_left)),
         "messages_left": config.SESSION_MAX_USER_MESSAGES - session["user_message_count"],
         "plan_text": session["plan_text"],
+        "drafts_left": config.MAX_DRAFTS_PER_SESSION - session["draft_count"],
+        "human_step_choice": session["human_step_choice"],
         "transcript": [dict(row) for row in database.get_messages(session["id"])],
     }
 

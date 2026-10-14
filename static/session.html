@@ -35,6 +35,54 @@
         </div>
       </section>
 
+      <!-- Reach-out panel: only shown in the "human_step" stage -->
+      <section class="card" id="reach-out-panel" hidden>
+        <h2>Reach out to a real person</h2>
+        <p class="muted">
+          Fren can help you draft a message. <strong>Fren never sends anything.</strong>
+          You copy it, change it however you like, and send it yourself.
+        </p>
+
+        <label for="recipient"><strong>Who could you get in touch with?</strong></label>
+        <input type="text" id="recipient" maxlength="100" list="recipient-ideas"
+          placeholder="e.g. my sister, a coursemate, my personal tutor">
+        <!-- Suggestions that appear as you type. The participant can write anything. -->
+        <datalist id="recipient-ideas">
+          <option value="A friend">
+          <option value="A family member">
+          <option value="A coursemate">
+          <option value="My personal tutor">
+          <option value="The university wellbeing service">
+          <option value="My GP surgery">
+        </datalist>
+
+        <label for="what-to-say"><strong>Roughly what would you like to say?</strong></label>
+        <textarea id="what-to-say" rows="2" maxlength="500"
+          placeholder="e.g. haven't seen them in ages, would like to meet for a coffee"></textarea>
+
+        <div class="row">
+          <button type="button" id="make-draft">Help me draft it</button>
+          <span class="muted" id="drafts-left"></span>
+        </div>
+
+        <div id="draft-area" hidden>
+          <label for="draft"><strong>Your draft</strong> (edit it freely)</label>
+          <textarea id="draft" rows="5"></textarea>
+          <div class="row">
+            <button type="button" class="secondary" id="copy-draft">Copy</button>
+            <span class="muted" id="copied" hidden>Copied. Paste it into your own messages or email.</span>
+          </div>
+        </div>
+
+        <fieldset class="choices" id="human-step-choices">
+          <legend>What will you do?</legend>
+          <label><input type="radio" name="human-step" value="sent"> I've sent it, or been in touch another way</label>
+          <label><input type="radio" name="human-step" value="later"> I'll get in touch after this session</label>
+          <label><input type="radio" name="human-step" value="skipped"> Not this time</label>
+        </fieldset>
+        <p class="muted" id="choice-saved" hidden>Saved. Any of these is fine.</p>
+      </section>
+
       <form id="message-form">
         <label for="message" class="muted">Your message</label>
         <textarea id="message" rows="2" maxlength="1000" required></textarea>

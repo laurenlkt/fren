@@ -27,9 +27,20 @@ class FilterResult:
     categories: tuple = ()
 
 
-def check_output(ai_reply):
+# Reach-out drafts are written in the PARTICIPANT's voice, to someone in
+# their life. "I've missed you, fancy a coffee?" is fine there, so these two
+# categories (which are about the AI itself) are not checked for drafts.
+# Diagnosis and medical-advice rules still apply to drafts.
+NOT_CHECKED_FOR_DRAFTS = ("claims-feelings", "dependence-guilt-urgency")
+
+
+def check_output(ai_reply, skip_categories=()):
     """Check one AI reply. Does NOT log anything."""
-    banned_entries = load_phrase_file(BANNED_FILE)
+    banned_entries = [
+        (category, pattern)
+        for category, pattern in load_phrase_file(BANNED_FILE)
+        if category not in skip_categories
+    ]
     categories = find_matches(ai_reply, banned_entries)
 
     # An empty reply is also unusable, so it gets the fallback too.
@@ -40,12 +51,12 @@ def check_output(ai_reply):
     return FilterResult(ai_reply, False)
 
 
-def screen_ai_reply(user_id, ai_reply):
+def screen_ai_reply(user_id, ai_reply, skip_categories=()):
     """
     The function the rest of the app calls: check a reply and log a safety
     event if it had to be blocked. Returns the FilterResult.
     """
-    result = check_output(ai_reply)
+    result = check_output(ai_reply, skip_categories)
     if result.blocked:
         database.log_safety_event(
             user_id=user_id,

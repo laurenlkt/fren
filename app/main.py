@@ -16,6 +16,8 @@ API (used by the pages' JavaScript, all under /api/...):
   POST /api/session/message   send a message
   POST /api/session/next      "Move on" to the next stage
   POST /api/session/plan      save the small plan
+  POST /api/session/draft     reach-out step: get a draft message
+  POST /api/session/human-step  reach-out step: sent / later / skipped
 
 Who is who: at onboarding Fren sets a cookie holding a random anonymous ID.
 There are no accounts, names or emails.
@@ -148,6 +150,15 @@ class PlanRequest(BaseModel):
     plan_text: str
 
 
+class DraftRequest(BaseModel):
+    recipient: str
+    what_to_say: str
+
+
+class HumanStepRequest(BaseModel):
+    choice: str
+
+
 def require_user(request):
     user_id = current_user_id(request)
     if user_id is None:
@@ -217,4 +228,18 @@ def next_stage(request: Request):
 @app.post("/api/session/plan")
 def plan(body: PlanRequest, request: Request):
     session_flow.save_plan(require_user(request), body.plan_text)
+    return {"ok": True}
+
+
+@app.post("/api/session/draft")
+def draft(body: DraftRequest, request: Request):
+    result = session_flow.draft_reach_out(require_user(request), body.recipient, body.what_to_say)
+    if result["status"] == "crisis":
+        result["crisis_html"] = crisis_check.crisis_message_html()
+    return result
+
+
+@app.post("/api/session/human-step")
+def human_step(body: HumanStepRequest, request: Request):
+    session_flow.record_human_step(require_user(request), body.choice)
     return {"ok": True}
