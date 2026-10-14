@@ -99,3 +99,9 @@ legend { font-weight: bold; margin-bottom: 8px; }
 #reach-out-panel label { display: block; margin-top: 12px; }
 #reach-out-panel .choices label { margin-top: 6px; }
 #reach-out-panel fieldset { margin-top: 16px; }
+
+/* Settings */
+.page-footer { margin-top: 24px; font-size: 0.9rem; }
+a.button { display: inline-block; text-decoration: none; }
+button.danger { background: #b3261e; }
+.danger-zone { border-color: #e6b3b0; }

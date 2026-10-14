@@ -13,6 +13,9 @@
   <main>
     <h1>Welcome to Fren</h1>
 
+    <!-- Shown after someone deletes their data (the page is /onboarding?deleted=1) -->
+    <p class="notice" id="deleted-notice" hidden>All your Fren data has been deleted.</p>
+
     <section class="card">
       <h2>What Fren is</h2>
       <p>
@@ -101,6 +104,10 @@
         showNotice(document.getElementById("error"), result.data.message || "Something went wrong.");
       }
     });
+
+    if (new URLSearchParams(window.location.search).get("deleted") === "1") {
+      document.getElementById("deleted-notice").hidden = false;
+    }
 
     setup();
   </script>

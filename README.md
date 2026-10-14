@@ -4,9 +4,10 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 7 of 8 is done: the safety layer, the session flow
-> with its limits, AI replies inside each stage, the reach-out draft, the
-> taper suggestion and "Looking back" review, and the researcher dashboard.
+> **Build status:** all 8 steps are built: the safety layer, the session
+> flow with its limits, AI replies inside each stage, the reach-out draft,
+> the taper suggestion and "Looking back" review, the researcher dashboard,
+> and settings with data export and deletion.
 
 ---
 
@@ -104,6 +105,25 @@ To start again as a brand-new participant, delete the cookie for
 
 To wipe all the data, stop the server and delete `data/fren.db`.
 
+### Settings, export and deletion
+
+Every participant page links to **Settings** (`/settings`), where a participant can:
+- see the session limits (fixed for the study)
+- change their minimum gap between sessions (one of the options in
+  `GAP_CHOICES_HOURS`)
+- **download** everything Fren holds about them as `fren-my-data.json`
+  (only their own data, never anyone else's)
+- **delete all their data**: tick a box, confirm, and their user record,
+  sessions, any open chat and their safety events are deleted in one go.
+  The browser's cookie is cleared, so they start as a new participant if
+  they come back.
+
+Deletion is real: SQLite's `secure_delete` setting overwrites deleted rows
+in the database file, and a test opens the file and checks the deleted
+words are no longer in it. The settings page also says honestly that
+messages already sent to Anthropic are covered by Anthropic's retention
+terms, not by Fren.
+
 ### The researcher dashboard
 
 The dashboard is **off** unless you set a password in the terminal you
@@ -129,6 +149,22 @@ It never shows participant IDs, plans or message text, even if
 `STORE_FLAGGED_TEXT` is on. The password is checked with a constant-time
 comparison. The page lives in `private_pages/`, not `static/`, so it can
 only be reached through the login.
+
+---
+
+## Before any real participant uses Fren
+
+- [ ] `DEV_MODE = False`, `USE_AI_CLASSIFIER = True`, `USE_AI_REPLIES = True`
+      in `config.py` (no red banner on any page).
+- [ ] `STORE_FLAGGED_TEXT` matches what your ethics approval allows.
+- [ ] Someone with safeguarding expertise has reviewed
+      `content/crisis_keywords.txt` and `content/crisis_message.html`.
+- [ ] You've read `content/system_prompt.txt` and the other files in `content/`.
+- [ ] The live tests pass and you've read the replies:
+      `FREN_LIVE_TESTS=1 python -m pytest tests -v -s -k live`
+- [ ] `RESEARCH_PASSWORD` is set to a long password, and only you know it.
+- [ ] Your ethics application covers data sent to Anthropic.
+- [ ] Start from an empty database: delete `data/fren.db` to remove test data.
 
 ---
 
@@ -160,6 +196,7 @@ only be reached through the login.
 | Database code | `app/database.py` |
 | Web routes | `app/main.py` |
 | Pages | `static/*.html`, `static/session.js` |
+| Settings page (gap, export, delete) | `static/settings.html` |
 
 You can edit everything in `content/` without touching any code. Changes
 apply on the next message, with no restart needed.

@@ -8,6 +8,7 @@ Pages (HTML files in static/):
   /session     - the session itself (chat, plan box, progress bar)
   /close       - session close screen
   /review      - "Looking back" at the last session, before the next check-in
+  /settings    - limits, gap between sessions, export / delete my data
   /help        - "Get help now": the fixed crisis message
   /research    - researcher dashboard (password protected, aggregates only)
 
@@ -22,6 +23,10 @@ API (used by the pages' JavaScript, all under /api/...):
   POST /api/session/human-step  reach-out step: sent / later / skipped
   POST /api/review            finish "Looking back" (did you get in touch?)
   POST /api/taper             yes / no to a suggested longer gap
+  GET  /api/settings          current gap and limits
+  POST /api/settings/gap      change the gap between sessions
+  GET  /api/my-data           download everything Fren holds about me
+  POST /api/delete-my-data    permanently delete everything about me
 
 Who is who: at onboarding Fren sets a cookie holding a random anonymous ID.
 There are no accounts, names or emails.
@@ -120,6 +125,11 @@ def review_page():
     return page("review")
 
 
+@app.get("/settings")
+def settings_page():
+    return page("settings")
+
+
 @app.get("/help", response_class=HTMLResponse)
 def help_page():
     """
@@ -181,6 +191,14 @@ class ReviewRequest(BaseModel):
 
 class TaperRequest(BaseModel):
     accept: bool
+
+
+class GapRequest(BaseModel):
+    min_gap_hours: float
+
+
+class DeleteRequest(BaseModel):
+    confirm: bool
 
 
 def require_user(request):
@@ -279,6 +297,58 @@ def review(body: ReviewRequest, request: Request):
 def taper_answer(body: TaperRequest, request: Request):
     session_flow.answer_taper(require_user(request), body.accept)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Settings, export and delete
+# ---------------------------------------------------------------------------
+@app.get("/api/settings")
+def get_settings(request: Request):
+    user = database.get_user(require_user(request))
+    return {
+        "gap_hours": user["min_gap_hours"],
+        "gap_choices_hours": config.GAP_CHOICES_HOURS,
+        "session_minutes": config.SESSION_MAX_MINUTES,
+        "session_messages": config.SESSION_MAX_USER_MESSAGES,
+        "dev_warnings": session_flow.dev_warnings(),
+    }
+
+
+@app.post("/api/settings/gap")
+def change_gap(body: GapRequest, request: Request):
+    user_id = require_user(request)
+    if body.min_gap_hours not in config.GAP_CHOICES_HOURS:
+        raise SessionError("bad_gap", "Please choose one of the gap options.")
+    database.set_user_gap(user_id, body.min_gap_hours)
+    return {"ok": True}
+
+
+@app.get("/api/my-data")
+def export_my_data(request: Request):
+    data = database.export_user_data(require_user(request))
+    data["note"] = (
+        "This is everything Fren holds about you. Chat messages are deleted "
+        "when each session ends, so only a session that is still open has any."
+    )
+    return JSONResponse(
+        data,
+        headers={
+            # Makes the browser download it as a file instead of showing it.
+            "Content-Disposition": 'attachment; filename="fren-my-data.json"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.post("/api/delete-my-data")
+def delete_my_data(body: DeleteRequest, request: Request):
+    user_id = require_user(request)
+    if not body.confirm:
+        raise SessionError("not_confirmed", "Please confirm that you want to delete everything.")
+    database.delete_user_data(user_id)
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(USER_COOKIE)  # this browser forgets the anonymous ID too
+    return response
 
 
 # ---------------------------------------------------------------------------

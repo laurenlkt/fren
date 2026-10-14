@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Settings</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- "Get help now": every Fren page includes this exact link. -->
+  <a class="help-button" href="/help">Get help now</a>
+
+  <main>
+    <h1>Settings</h1>
+
+    <section class="card">
+      <h2>Session limits</h2>
+      <p>
+        Each session lasts at most <strong><span id="minutes">10</span> minutes</strong>
+        or <strong><span id="messages">12</span> messages</strong>. These are the same
+        for everyone in the study and can't be changed.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Time between sessions</h2>
+      <form id="gap-form">
+        <fieldset class="choices" id="gap-choices">
+          <legend>Minimum time between sessions</legend>
+          <!-- filled in by the script below -->
+        </fieldset>
+        <button type="submit">Save</button>
+        <span class="muted" id="gap-saved" hidden>Saved.</span>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Your data</h2>
+      <p>
+        Download everything Fren holds about you, as a file. It includes your
+        mood scores, session times, plans, and whether you reached out to someone.
+      </p>
+      <p><a class="button" href="/api/my-data" download>Download my data</a></p>
+      <p class="muted">
+        While a session is open, its chat is included too. Chats are deleted
+        from Fren when each session ends.
+      </p>
+    </section>
+
+    <section class="card danger-zone">
+      <h2>Delete all my data</h2>
+      <p>
+        This permanently deletes everything Fren holds about you: your sessions,
+        moods, plans and any safety records. It can't be undone. If you use
+        Fren again afterwards, you'll start as a new participant.
+      </p>
+      <label>
+        <input type="checkbox" id="confirm-delete">
+        I understand this can't be undone.
+      </label>
+      <p><button type="button" class="danger" id="delete-button" disabled>Delete all my data</button></p>
+      <p class="muted">
+        Messages you typed during sessions were also sent to Anthropic, the company
+        that provides Fren's AI. Fren can't delete those copies; they are handled
+        under Anthropic's own data retention terms.
+      </p>
+      <p class="notice" id="error" hidden></p>
+    </section>
+
+    <p><a href="/">Back to Fren</a></p>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+    async function setup() {
+      const result = await api("/api/settings");
+      if (!result.ok) return;
+      const settings = result.data;
+      showDevWarnings(settings.dev_warnings);
+      document.getElementById("minutes").textContent = settings.session_minutes;
+      document.getElementById("messages").textContent = settings.session_messages;
+
+      const box = document.getElementById("gap-choices");
+      for (const hours of settings.gap_choices_hours) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "gap";
+        input.value = hours;
+        input.checked = hours === settings.gap_hours;
+        label.append(input, " " + describeHours(hours));
+        box.append(label);
+      }
+    }
+
+    document.getElementById("gap-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const picked = document.querySelector("input[name=gap]:checked");
+      if (!picked) return;
+      const result = await api("/api/settings/gap", { min_gap_hours: Number(picked.value) });
+      document.getElementById("gap-saved").hidden = !result.ok;
+    });
+
+    // The delete button only works once the box is ticked.
+    const confirmBox = document.getElementById("confirm-delete");
+    const deleteButton = document.getElementById("delete-button");
+    confirmBox.addEventListener("change", () => { deleteButton.disabled = !confirmBox.checked; });
+
+    deleteButton.addEventListener("click", async () => {
+      if (!confirmBox.checked) return;
+      if (!window.confirm("Delete all your Fren data now? This can't be undone.")) return;
+      deleteButton.disabled = true;
+      const result = await api("/api/delete-my-data", { confirm: true });
+      if (result.ok) {
+        window.location.href = "/onboarding?deleted=1";
+      } else {
+        showNotice(document.getElementById("error"), result.data.message || "Something went wrong.");
+        deleteButton.disabled = false;
+      }
+    });
+
+    setup();
+  </script>
+</body>
+</html>

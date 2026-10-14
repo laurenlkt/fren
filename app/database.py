@@ -21,6 +21,9 @@ def get_connection():
     config.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(config.DATABASE_PATH)
     connection.row_factory = sqlite3.Row  # lets us use row["column_name"]
+    # When rows are deleted, overwrite them with zeros in the file, instead
+    # of just marking the space as free. So "delete" really deletes.
+    connection.execute("PRAGMA secure_delete = ON")
     return connection
 
 
@@ -248,6 +251,55 @@ def get_messages(session_id):
 def delete_messages(session_id):
     with get_connection() as connection:
         connection.execute("DELETE FROM session_messages WHERE session_id = ?", (session_id,))
+
+
+# ---------------------------------------------------------------------------
+# A participant's own data: export and delete
+# ---------------------------------------------------------------------------
+def export_user_data(user_id):
+    """
+    Everything Fren holds about one participant, as plain Python data.
+    Only THEIR rows: other participants' data is never included.
+    """
+    with get_connection() as connection:
+        user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        sessions = connection.execute(
+            "SELECT * FROM sessions WHERE user_id = ? ORDER BY id", (user_id,)
+        ).fetchall()
+        messages = connection.execute(
+            "SELECT session_id, role, text, created_at FROM session_messages "
+            "WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?) ORDER BY id",
+            (user_id,),
+        ).fetchall()
+        safety_events = connection.execute(
+            "SELECT created_at, source, category, text FROM safety_events "
+            "WHERE user_id = ? ORDER BY id",
+            (user_id,),
+        ).fetchall()
+
+    return {
+        "user": dict(user) if user else None,
+        "sessions": [dict(row) for row in sessions],
+        "current_session_messages": [dict(row) for row in messages],
+        "safety_events": [dict(row) for row in safety_events],
+    }
+
+
+def delete_user_data(user_id):
+    """
+    Permanently delete EVERYTHING about one participant: their user row,
+    sessions, any current chat, and their safety events. All in one go, so
+    it either all happens or none of it does.
+    """
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM session_messages WHERE session_id IN "
+            "(SELECT id FROM sessions WHERE user_id = ?)",
+            (user_id,),
+        )
+        connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        connection.execute("DELETE FROM safety_events WHERE user_id = ?", (user_id,))
+        connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
 
 # ---------------------------------------------------------------------------
