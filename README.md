@@ -4,9 +4,8 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 3 of 8 is done: the safety layer, plus the session
-> flow with its limits. Fren's replies are still **scripted placeholders**
-> (marked `[scripted]`). The AI replies come in step 4.
+> **Build status:** Step 4 of 8 is done: the safety layer, the session flow
+> with its limits, and AI replies inside each stage.
 
 ---
 
@@ -58,8 +57,13 @@ internet. To also test the **real** AI classifier (this costs a few pence):
 
 ```bash
 export FREN_LIVE_TESTS=1                   # Windows: $env:FREN_LIVE_TESTS="1"
-python -m pytest tests -v -k live
+python -m pytest tests -v -s -k live
 ```
+
+`-s` prints each real AI reply so you can read them, not just see pass/fail.
+The live tests check the classifier, and that replies to tricky messages
+("are you a real person?", "will you miss me?", "do I have depression?")
+get through the output filter.
 
 ## Try the safety layer by hand
 
@@ -82,15 +86,17 @@ computer (`127.0.0.1`). Stop it with **Ctrl+C**.
 
 ### Trying a session without waiting or paying
 
-Two settings in `config.py` help while you're developing. **Both must be
-`False` for real participants.** While either is on, the server prints a
-warning and every page shows a red banner.
+Three settings in `config.py` help while you're developing. **Change them
+back before any real participant uses Fren.** While any of them is in
+developer mode, the server prints a warning and every page shows a red banner.
 
 - `DEV_MODE = True` makes gaps count in minutes instead of hours, so a
   "1 day" gap becomes 24 minutes.
 - `USE_AI_CLASSIFIER = False` skips the AI crisis check (keywords still
   run), so you can click through without an API key. Without this, and
   with no key, every message fails safe and shows the help message.
+- `USE_AI_REPLIES = False` uses the placeholder replies in
+  `content/scripted_replies.json` instead of the AI.
 
 To start again as a brand-new participant, delete the cookie for
 127.0.0.1 in your browser, or use a private window.
@@ -104,6 +110,9 @@ To wipe all the data, stop the server and delete `data/fren.db`.
 | What | File |
 |---|---|
 | Settings (model name, limits, logging) | `config.py` |
+| **Fren's rules for the AI (system prompt)** | `content/system_prompt.txt` |
+| What the AI is told about each stage | `content/stage_instructions.json` |
+| Reply shown if the AI can't reply | `content/ai_unavailable_reply.txt` |
 | Crisis keyword list | `content/crisis_keywords.txt` |
 | Crisis classifier prompt | `content/crisis_classifier_prompt.txt` |
 | Help message (UK services) | `content/crisis_message.html` |
@@ -113,7 +122,8 @@ To wipe all the data, stop the server and delete `data/fren.db`.
 | Output filter code | `app/safety/output_filter.py` |
 | Example test messages | `tests/safety_examples.py` |
 | Line Fren shows at the start of each stage | `content/stage_prompts.json` |
-| Placeholder replies (step 3 only) | `content/scripted_replies.json` |
+| Placeholder replies (developer mode only) | `content/scripted_replies.json` |
+| The only code that calls the AI | `app/ai_client.py` |
 | Text on the session-ended screen | `content/closing_messages.json` |
 | The session state machine | `app/session_flow.py` |
 | Database code | `app/database.py` |
@@ -144,6 +154,24 @@ onboarding ─► check-in (mood 1-5) ─► session ─► close screen
   start/end times, why it ended, the plan, and whether the human step was
   taken.
 - If a crisis is detected, the session ends and the help message is shown.
+
+### How each AI reply is made
+
+1. The crisis check runs first. A crisis message never reaches the reply AI.
+2. Fren sends the AI: the rules in `system_prompt.txt`, the instructions for
+   the **current** stage from `stage_instructions.json` (with the check-in
+   mood filled in), and this session's chat so far.
+3. The AI writes one short reply. It can't change the stage. Only the app
+   moves the session on, by counting messages or when "Move on" is pressed.
+4. The reply goes through the output filter. If it fails, the safe fallback
+   is shown instead and a safety event is logged.
+5. If the AI call fails (no key, no internet, the model declines, the reply
+   is cut off), `ai_unavailable_reply.txt` is shown and the session carries on.
+
+**Data sent to Anthropic:** each participant message goes to the API twice
+(the crisis check, then the reply). The reply call also includes the chat so far.
+Check Anthropic's current data retention terms for your ethics application.
+Participants are told about this on the onboarding page.
 
 ## How the safety layer works
 

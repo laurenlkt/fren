@@ -1,5 +1,5 @@
 {
-  "_note": "STEP 3 ONLY: placeholder replies used before the AI is connected. Each stage has a list: the 1st reply is used after the 1st message in that stage, and so on. If there are more messages than replies, the last one repeats.",
+  "_note": "Placeholder replies, used ONLY when USE_AI_REPLIES = False in config.py. Each stage has a list: the 1st reply is used after the 1st message in that stage, and so on. If there are more messages than replies, the last one repeats.",
   "checkin": [
     "[scripted] Thanks for sharing that."
   ],

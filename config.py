@@ -39,9 +39,15 @@ MODEL_NAME = "claude-opus-5-5"
 CLASSIFIER_MAX_TOKENS = 1024
 CLASSIFIER_EFFORT = "low"
 
-# How long (seconds) to wait for the classifier before giving up.
-# If it gives up, Fren FAILS SAFE and shows the help message.
-CLASSIFIER_TIMEOUT_SECONDS = 20
+# How long (seconds) to wait for the AI before giving up. If the crisis
+# classifier gives up, Fren FAILS SAFE and shows the help message.
+AI_TIMEOUT_SECONDS = 30
+
+# Session replies. "low" effort keeps replies quick, which suits short chat.
+# REPLY_MAX_TOKENS includes the model's hidden thinking, so it's well above
+# the length of the visible 1-3 sentence reply.
+REPLY_MAX_TOKENS = 4000
+REPLY_EFFORT = "low"
 
 # ---------------------------------------------------------------------------
 # Safety logging
@@ -97,6 +103,10 @@ MOOD_MAX = 5
 # DEV_MODE: gaps count in MINUTES instead of hours, so you can test the gap
 # without waiting a day (a "24 hour" gap becomes 24 minutes).
 DEV_MODE = False
+
+# USE_AI_REPLIES: set to False to use the placeholder replies in
+# content/scripted_replies.json instead of the AI (e.g. no API key).
+USE_AI_REPLIES = True
 
 # USE_AI_CLASSIFIER: set to False ONLY to try the app without an API key.
 # The keyword check still runs, but the AI check is skipped. The server

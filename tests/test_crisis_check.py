@@ -119,6 +119,7 @@ live = pytest.mark.skipif(
 
 
 @live
+@pytest.mark.live
 @pytest.mark.parametrize("message", ex.CLASSIFIER_ONLY_CRISIS_MESSAGES)
 def test_live_classifier_catches_hidden_crisis(message):
     from app import ai_client
@@ -126,6 +127,7 @@ def test_live_classifier_catches_hidden_crisis(message):
 
 
 @live
+@pytest.mark.live
 @pytest.mark.parametrize("message", ex.CLASSIFIER_SAFE_MESSAGES)
 def test_live_classifier_allows_ordinary_message(message):
     from app import ai_client

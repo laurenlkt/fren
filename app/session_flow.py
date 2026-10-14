@@ -6,8 +6,8 @@ A session always moves through the same stages, in order:
     checkin -> focus -> reflection -> plan -> human_step -> close -> (ended)
 
 THIS file decides which stage we're in, when to move on, and when the
-session must end. The AI (from step 4) only ever writes ONE reply inside
-the current stage. It can never change the stage or extend the session.
+session must end. The AI only ever writes ONE reply inside the current
+stage. It can never change the stage or extend the session.
 
 The limits are checked here, on the server, on every request:
   - 10 minutes since the session started   (config.SESSION_MAX_MINUTES)
@@ -23,7 +23,7 @@ import json
 from datetime import timedelta
 
 import config
-from app import database
+from app import ai_client, database
 from app.safety import crisis_check, output_filter
 
 ENDED = "ended"  # the stage value once a session has finished
@@ -57,12 +57,29 @@ def stage_prompt(stage):
 
 def scripted_reply(stage, stage_message_number):
     """
-    STEP 3 placeholder: pick a pre-written reply.
-    In step 4 this is replaced by the AI (still inside the same stage).
+    A pre-written placeholder reply. Only used when config.USE_AI_REPLIES
+    is False (e.g. trying Fren without an API key).
     """
     replies = _load_json("scripted_replies.json")[stage]
     index = min(stage_message_number - 1, len(replies) - 1)
     return replies[index]
+
+
+def write_reply(session, stage_message_number):
+    """
+    Get Fren's reply for the current stage: from the AI normally, or a
+    placeholder in developer mode. If the AI fails for any reason, a fixed
+    "couldn't reply" message is used instead.
+    """
+    if not config.USE_AI_REPLIES:
+        return scripted_reply(session["stage"], stage_message_number)
+
+    transcript = [dict(row) for row in database.get_messages(session["id"])]
+    try:
+        return ai_client.generate_reply(session["stage"], session["mood"], transcript)
+    except Exception as error:
+        print(f"AI reply failed: {type(error).__name__}: {error}")  # for you, in the terminal
+        return (config.CONTENT_DIR / "ai_unavailable_reply.txt").read_text(encoding="utf-8").strip()
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +100,8 @@ def gap_length(user):
     The participant's minimum gap as a timedelta.
     In DEV_MODE the number is read as minutes instead of hours, for testing.
     """
+    if not config.USE_AI_REPLIES:
+        warnings.append("AI replies are OFF (placeholder replies). Not for participants.")
     if config.DEV_MODE:
         return timedelta(minutes=user["min_gap_hours"])
     return timedelta(hours=user["min_gap_hours"])
@@ -236,7 +255,8 @@ def handle_message(user_id, text, classifier=None, now=None):
     database.add_message(session["id"], "user", text)
 
     # --- The reply, written INSIDE the current stage ---
-    reply = scripted_reply(session["stage"], stage_count)  # step 4: AI goes here
+    reply = write_reply(session, stage_count)
+    # Every reply passes the output filter before the participant sees it.
     reply = output_filter.screen_ai_reply(user_id, reply).text
     database.add_message(session["id"], "fren", reply)
 
@@ -329,6 +349,8 @@ def dev_warnings():
     warnings = []
     if not config.USE_AI_CLASSIFIER:
         warnings.append("AI crisis classifier is OFF (keywords only). Not for participants.")
+    if not config.USE_AI_REPLIES:
+        warnings.append("AI replies are OFF (placeholder replies). Not for participants.")
     if config.DEV_MODE:
         warnings.append("DEV_MODE is on: session gaps are in minutes. Not for participants.")
     return warnings

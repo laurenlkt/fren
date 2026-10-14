@@ -187,10 +187,17 @@ def test_classifier_failure_also_ends_session(user_id):
 
 
 def test_replies_go_through_the_output_filter(user_id, monkeypatch):
-    monkeypatch.setattr(session_flow, "scripted_reply", lambda stage, n: "I'll miss you!")
+    monkeypatch.setattr(session_flow.ai_client, "generate_reply",
+                        lambda stage, mood, transcript: "I'll miss you!")
     session_flow.start_session(user_id, mood=3, now=T0)
     result = send(user_id)
     assert "miss you" not in result["reply"]
+
+
+def test_scripted_replies_when_ai_replies_are_off(user_id, monkeypatch):
+    monkeypatch.setattr(config, "USE_AI_REPLIES", False)
+    session_flow.start_session(user_id, mood=3, now=T0)
+    assert send(user_id)["reply"].startswith("[scripted]")
 
 
 def test_chat_is_deleted_when_session_ends(user_id):

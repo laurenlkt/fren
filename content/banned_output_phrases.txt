@@ -60,13 +60,20 @@ before it's too late
 you should talk to me instead
 you don't need anyone else
 don't need other people
+see you next time
+see you soon
+see you tomorrow
+talk to you soon
+talk soon
+i look forward to
+i'm looking forward to
+can't wait to hear
 
 [diagnosis]
 regex:\byou (have|might have|may have|probably have|could have|seem to have|clearly have|definitely have|are suffering from|suffer from) (clinical )?(depression|anxiety|an anxiety disorder|bipolar|adhd|ocd|ptsd|bpd|an eating disorder|anorexia|bulimia|schizophrenia|a personality disorder|a mental illness|a disorder|autism|insomnia)\b
 regex:\byou(\s+are|'re)\s+(clinically\s+)?(depressed|bipolar|anorexic|bulimic|autistic|schizophrenic|psychotic)\b
 regex:\b(sounds|looks) like (you have )?(depression|an anxiety disorder|bipolar|adhd|ocd|ptsd|bpd|an eating disorder)\b
 symptoms of depression
-diagnose you
 my diagnosis
 i diagnose
 
