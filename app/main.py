@@ -9,6 +9,7 @@ Pages (HTML files in static/):
   /close       - session close screen
   /review      - "Looking back" at the last session, before the next check-in
   /help        - "Get help now": the fixed crisis message
+  /research    - researcher dashboard (password protected, aggregates only)
 
 API (used by the pages' JavaScript, all under /api/...):
   POST /api/onboard           create an anonymous participant
@@ -28,13 +29,14 @@ There are no accounts, names or emails.
 Start the server with:  python run.py
 """
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import config
-from app import database, session_flow
+from app import database, research, session_flow
 from app.safety import crisis_check
 from app.session_flow import SessionError
 
@@ -50,6 +52,9 @@ database.init_db()
 
 for warning in session_flow.dev_warnings():
     print(f"\n*** WARNING: {warning} ***\n")
+
+if research.research_password() is None:
+    print("\n*** Researcher dashboard is OFF: set the RESEARCH_PASSWORD environment variable to turn it on. ***\n")
 
 
 # ---------------------------------------------------------------------------
@@ -274,3 +279,41 @@ def review(body: ReviewRequest, request: Request):
 def taper_answer(body: TaperRequest, request: Request):
     session_flow.answer_taper(require_user(request), body.accept)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Researcher dashboard
+# ---------------------------------------------------------------------------
+# HTTP Basic login: the browser shows its own username/password box.
+# Username: researcher    Password: whatever RESEARCH_PASSWORD is set to.
+basic_login = HTTPBasic(auto_error=False)
+
+
+def require_researcher(credentials: HTTPBasicCredentials | None = Depends(basic_login)):
+    if research.research_password() is None:
+        # Refuse to run at all without a password. No default password.
+        raise HTTPException(
+            status_code=503,
+            detail="The researcher dashboard is turned off. Set RESEARCH_PASSWORD and restart.",
+        )
+    if credentials is None or not research.credentials_ok(credentials.username, credentials.password):
+        raise HTTPException(
+            status_code=401,
+            detail="Researcher login needed.",
+            headers={"WWW-Authenticate": 'Basic realm="Fren research"'},
+        )
+
+
+# "no-store" asks the browser not to keep a copy of these pages.
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+@app.get("/research", dependencies=[Depends(require_researcher)])
+def research_page():
+    # Kept outside static/ so it can only be reached through this login.
+    return FileResponse(config.BASE_DIR / "private_pages" / "research.html", headers=NO_STORE)
+
+
+@app.get("/api/research/summary", dependencies=[Depends(require_researcher)])
+def research_summary():
+    return JSONResponse(research.summary(), headers=NO_STORE)

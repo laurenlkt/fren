@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fren - Research dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* Chart colours, set in one place. Single-series charts use one blue. */
+    .viz-root {
+      --surface-1: #fcfcfb;
+      --text-primary: #0b0b0b;
+      --text-secondary: #52514e;
+      --grid: #e2dfd6;
+      --series-1: #2a78d6;
+    }
+    main.wide { max-width: 900px; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .tile { background: #fff; border: 1px solid #e2dfd6; border-radius: 12px; padding: 12px 16px; }
+    .tile .value { font-size: 2rem; font-weight: bold; color: var(--text-primary); }
+    .tile .label { color: var(--text-secondary); font-size: 0.9rem; }
+    .chart { width: 100%; height: auto; display: block; background: var(--surface-1); }
+    .chart text { font-size: 11px; fill: var(--text-secondary); }
+    .chart .grid line { stroke: var(--grid); stroke-width: 1; }
+    .chart .bar { fill: var(--series-1); }
+    .chart .bar:hover, .chart .dot:hover { opacity: 0.75; }
+    .chart .line { fill: none; stroke: var(--series-1); stroke-width: 2; }
+    .chart .dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+    table.data { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin-top: 8px; }
+    table.data th, table.data td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e2dfd6; }
+    table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    details summary { cursor: pointer; color: var(--text-secondary); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <!-- Researcher page: no "Get help now" button needed here (not a participant screen),
+       but the help page is still linked at the bottom. -->
+  <main class="wide viz-root">
+    <h1>Fren research dashboard</h1>
+    <p class="muted">
+      Totals and averages across all participants only. No participant IDs,
+      plans or message text are shown here. Weeks start on Monday (UTC).
+    </p>
+    <p class="notice" id="error" hidden></p>
+
+    <section class="tiles" aria-label="Totals">
+      <div class="tile"><div class="value" id="t-participants">-</div><div class="label">Participants</div></div>
+      <div class="tile"><div class="value" id="t-sessions">-</div><div class="label">Sessions</div></div>
+      <div class="tile"><div class="value" id="t-human">-</div><div class="label">Human steps taken</div></div>
+      <div class="tile"><div class="value" id="t-safety">-</div><div class="label">Safety events</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Sessions per week</h2>
+      <div id="chart-sessions"></div>
+    </section>
+
+    <section class="card">
+      <h2>Average check-in mood per week</h2>
+      <p class="muted">Mood scale 1 (very low) to 5 (very good). Gaps are weeks with no sessions.</p>
+      <div id="chart-mood"></div>
+    </section>
+
+    <section class="card">
+      <h2>Human steps taken per week</h2>
+      <p class="muted">Sessions where the participant said they got in touch with someone
+        (at the time, or later in "Looking back").</p>
+      <div id="chart-human"></div>
+      <h3>Reach-out answers (finished sessions)</h3>
+      <table class="data" id="table-choices"></table>
+    </section>
+
+    <section class="card">
+      <h2>Safety events</h2>
+      <p class="muted">Counts only. Message text is never shown here.</p>
+      <div id="chart-safety"></div>
+      <h3>By which check fired</h3>
+      <table class="data" id="table-source"></table>
+      <h3>By category</h3>
+      <table class="data" id="table-category"></table>
+    </section>
+
+    <p class="muted"><a href="/help">Help page shown to participants</a></p>
+  </main>
+
+  <script>
+    // Short date label for a week, e.g. "13 Oct".
+    function weekLabel(isoDate) {
+      return new Date(isoDate + "T00:00:00Z").toLocaleDateString(undefined, {
+        day: "numeric", month: "short", timeZone: "UTC",
+      });
+    }
+
+    // Make an SVG element with attributes.
+    function svgEl(name, attributes) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [key, value] of Object.entries(attributes || {})) el.setAttribute(key, value);
+      return el;
+    }
+
+    // A table under each chart, so the numbers can be read without the chart.
+    function dataTable(headers, rows) {
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = "Show as table";
+      const table = document.createElement("table");
+      table.className = "data";
+      fillTable(table, headers, rows);
+      details.append(summary, table);
+      return details;
+    }
+
+    function fillTable(table, headers, rows) {
+      table.innerHTML = "";
+      const head = table.insertRow();
+      headers.forEach((text, i) => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        if (i > 0) th.className = "num";
+        head.append(th);
+      });
+      for (const row of rows) {
+        const tr = table.insertRow();
+        row.forEach((value, i) => {
+          const td = tr.insertCell();
+          td.textContent = value === null ? "-" : value;
+          if (i > 0) td.className = "num";
+        });
+      }
+    }
+
+    // One chart for all three kinds: bars (counts) or a line (mood).
+    // weeks: [{label, value}]. value null = no data that week.
+    function drawChart(container, weeks, options) {
+      const width = 800, height = 240;
+      const left = 36, right = 12, top = 12, bottom = 28;
+      const plotW = width - left - right, plotH = height - top - bottom;
+      const svg = svgEl("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart",
+                                 role: "img", "aria-label": options.title });
+
+      const values = weeks.map(w => w.value).filter(v => v !== null);
+      const yMin = options.yMin ?? 0;
+      const dataMax = options.yMax ?? Math.max(1, ...values);
+      const step = Math.max(1, Math.ceil((dataMax - yMin) / 4));
+      // Round the top of the axis up to a whole step, so the tallest bar
+      // always sits under a labelled gridline.
+      const yMax = yMin + Math.ceil((dataMax - yMin) / step) * step;
+      const y = v => top + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+      const slot = plotW / Math.max(1, weeks.length);
+      const x = i => left + slot * i + slot / 2;
+
+      // Gridlines and y-axis numbers (whole numbers only).
+      const grid = svgEl("g", { class: "grid" });
+      for (let v = yMin; v <= yMax; v += step) {
+        grid.append(svgEl("line", { x1: left, x2: width - right, y1: y(v), y2: y(v) }));
+        const label = svgEl("text", { x: left - 6, y: y(v) + 4, "text-anchor": "end" });
+        label.textContent = v;
+        grid.append(label);
+      }
+      svg.append(grid);
+
+      // Week labels along the bottom (thinned out if there are many weeks).
+      const every = Math.ceil(weeks.length / 10);
+      weeks.forEach((w, i) => {
+        if (i % every !== 0) return;
+        const label = svgEl("text", { x: x(i), y: height - 8, "text-anchor": "middle" });
+        label.textContent = w.label;
+        svg.append(label);
+      });
+
+      if (options.kind === "bar") {
+        const barW = Math.max(4, Math.min(40, slot - 6));
+        weeks.forEach((w, i) => {
+          if (!w.value) return;
+          const bar = svgEl("rect", { class: "bar", x: x(i) - barW / 2, y: y(w.value),
+                                      width: barW, height: y(0) - y(w.value), rx: 3 });
+          const tip = svgEl("title");
+          tip.textContent = `Week of ${w.label}: ${w.value}`;
+          bar.append(tip);
+          svg.append(bar);
+        });
+      } else {
+        // Line with breaks where a week has no data.
+        let path = "";
+        let penDown = false;
+        weeks.forEach((w, i) => {
+          if (w.value === null) { penDown = false; return; }
+          path += `${penDown ? "L" : "M"}${x(i)},${y(w.value)} `;
+          penDown = true;
+        });
+        svg.append(svgEl("path", { class: "line", d: path }));
+        weeks.forEach((w, i) => {
+          if (w.value === null) return;
+          const dot = svgEl("circle", { class: "dot", cx: x(i), cy: y(w.value), r: 5 });
+          const tip = svgEl("title");
+          tip.textContent = `Week of ${w.label}: ${w.value}`;
+          dot.append(tip);
+          svg.append(dot);
+        });
+      }
+
+      container.innerHTML = "";
+      if (weeks.length === 0) {
+        container.textContent = "No data yet.";
+        return;
+      }
+      container.append(svg, dataTable(["Week of", options.valueName],
+                                      weeks.map(w => [w.label, w.value])));
+    }
+
+    const CHOICE_NAMES = {
+      sent: "Got in touch", later: "Planned to, after the session",
+      skipped: "Not this time", not_answered: "Didn't answer",
+    };
+
+    async function load() {
+      // The browser re-sends the researcher login automatically.
+      const response = await fetch("/api/research/summary");
+      if (!response.ok) {
+        const box = document.getElementById("error");
+        box.textContent = "Couldn't load the numbers (" + response.status + ").";
+        box.hidden = false;
+        return;
+      }
+      const data = await response.json();
+
+      document.getElementById("t-participants").textContent = data.totals.participants;
+      document.getElementById("t-sessions").textContent = data.totals.sessions;
+      document.getElementById("t-human").textContent = data.totals.human_steps_taken;
+      document.getElementById("t-safety").textContent = data.totals.safety_events;
+
+      const weeks = data.weeks.map(w => ({ ...w, label: weekLabel(w.week_start) }));
+      drawChart(document.getElementById("chart-sessions"),
+        weeks.map(w => ({ label: w.label, value: w.sessions })),
+        { kind: "bar", title: "Sessions per week", valueName: "Sessions" });
+      drawChart(document.getElementById("chart-mood"),
+        weeks.map(w => ({ label: w.label, value: w.average_mood })),
+        { kind: "line", yMin: 1, yMax: 5, title: "Average check-in mood per week", valueName: "Average mood" });
+      drawChart(document.getElementById("chart-human"),
+        weeks.map(w => ({ label: w.label, value: w.human_steps_taken })),
+        { kind: "bar", title: "Human steps taken per week", valueName: "Human steps taken" });
+      drawChart(document.getElementById("chart-safety"),
+        weeks.map(w => ({ label: w.label, value: w.safety_events })),
+        { kind: "bar", title: "Safety events per week", valueName: "Safety events" });
+
+      fillTable(document.getElementById("table-choices"), ["Answer", "Sessions"],
+        Object.entries(data.human_step_choices).map(([key, count]) => [CHOICE_NAMES[key] || key, count]));
+      fillTable(document.getElementById("table-source"), ["Check", "Events"],
+        data.safety_by_source.map(r => [r.source, r.count]));
+      fillTable(document.getElementById("table-category"), ["Category", "Events"],
+        data.safety_by_category.map(r => [r.category, r.count]));
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -4,9 +4,9 @@ Fren is a research prototype: a wellbeing companion for adult university
 students, designed **not** to build dependence. It is **not therapy and not
 crisis care**. It is for testing under ethics oversight, not public release.
 
-> **Build status:** Step 6 of 8 is done: the safety layer, the session flow
-> with its limits, AI replies inside each stage, the reach-out draft, and
-> the taper suggestion and "Looking back" review.
+> **Build status:** Step 7 of 8 is done: the safety layer, the session flow
+> with its limits, AI replies inside each stage, the reach-out draft, the
+> taper suggestion and "Looking back" review, and the researcher dashboard.
 
 ---
 
@@ -104,6 +104,32 @@ To start again as a brand-new participant, delete the cookie for
 
 To wipe all the data, stop the server and delete `data/fren.db`.
 
+### The researcher dashboard
+
+The dashboard is **off** unless you set a password in the terminal you
+start Fren from:
+
+```bash
+export RESEARCH_PASSWORD="choose-a-long-password"   # Windows: $env:RESEARCH_PASSWORD="..."
+python run.py
+```
+
+Then open <http://127.0.0.1:8000/research>. Your browser asks you to log in:
+the username is `researcher` and the password is the one you set. Without
+`RESEARCH_PASSWORD` the page answers "turned off" and the server prints a
+reminder when it starts. There is no default password.
+
+It shows **totals and averages only**:
+- participants, sessions, human steps taken, safety events (top tiles)
+- sessions per week, average check-in mood per week, human steps per week,
+  safety events per week (each chart has a "Show as table" option)
+- reach-out answers, and safety events by check and by category
+
+It never shows participant IDs, plans or message text, even if
+`STORE_FLAGGED_TEXT` is on. The password is checked with a constant-time
+comparison. The page lives in `private_pages/`, not `static/`, so it can
+only be reached through the login.
+
 ---
 
 ## Where things are
@@ -129,6 +155,8 @@ To wipe all the data, stop the server and delete `data/fren.db`.
 | Text on the session-ended screen | `content/closing_messages.json` |
 | The session state machine | `app/session_flow.py` |
 | The "suggest a longer gap" rule | `app/taper.py` |
+| Dashboard numbers and password check | `app/research.py` |
+| Dashboard page | `private_pages/research.html` |
 | Database code | `app/database.py` |
 | Web routes | `app/main.py` |
 | Pages | `static/*.html`, `static/session.js` |
